@@ -16,6 +16,15 @@
     li { border: 1px solid #51667c; border-radius: 14px; padding: 17px 19px; background: #1a2a3d; }
     strong { display: block; font-size: 18px; margin-bottom: 5px; }
     li span { color: #bfd0e5; }
+    .auth { margin: 26px 0; padding: 20px; border: 1px solid #51667c; border-radius: 14px; background: #1a2a3d; }
+    .auth h2 { margin: 0 0 12px; font-size: 21px; }
+    .auth p { margin: 8px 0 14px; font-size: 14px; }
+    .auth label { display: block; margin: 10px 0 5px; font-size: 14px; font-weight: 700; }
+    .auth input { box-sizing: border-box; width: 100%; padding: 11px 12px; border: 1px solid #667b93; border-radius: 8px; background: #101a28; color: #ecf4ff; font: inherit; }
+    .auth button { margin-top: 14px; padding: 10px 18px; border: 0; border-radius: 8px; background: #8ad8df; color: #101a28; font: inherit; font-weight: 700; cursor: pointer; }
+    .auth button:disabled { opacity: .6; cursor: wait; }
+    .auth .auth-error { color: #ffb6c4; }
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
@@ -23,9 +32,110 @@
     <div class="eyebrow">BYTE BACK · 2단계 자료 이전</div>
     <h1>내 자료실</h1>
     <p>가상 자료 네 건을 서버 API를 통해 불러옵니다.</p>
-    <div class="notice">이 API는 아직 로그인 없이 접근할 수 있습니다. 이전 공개 커밋·배포 이력에도 가상 자료가 남을 수 있으므로 실제 개인정보는 넣지 마세요.</div>
+    <div class="notice">이 단계에서는 로그인 화면만 추가합니다. 서버 API는 아직 누구나 호출할 수 있습니다. 이전 공개 커밋·배포 이력에도 가상 자료가 남을 수 있으므로 실제 개인정보는 넣지 마세요.</div>
+    <section class="auth" aria-labelledby="auth-heading">
+      <h2 id="auth-heading">이메일 로그인</h2>
+      <p id="auth-status" role="status" aria-live="polite">로그인 상태를 확인하는 중입니다.</p>
+      <form id="login-form">
+        <label for="login-email">이메일</label>
+        <input id="login-email" type="email" autocomplete="username" required>
+        <label for="login-password">비밀번호</label>
+        <input id="login-password" type="password" autocomplete="current-password" required>
+        <button id="login-button" type="submit">로그인</button>
+      </form>
+      <div id="signed-in" hidden>
+        <p id="signed-in-email"></p>
+        <button id="logout-button" type="button">로그아웃</button>
+      </div>
+      <p id="auth-error" class="auth-error" role="alert" hidden></p>
+    </section>
     <ul id="notes" aria-live="polite"><li>가상 자료를 불러오는 중입니다.</li></ul>
   </main>
+  <script type="module">
+    // 3단계 제작 1: 공개용 값만 입력합니다. 서버 전용 Secret key는 절대 넣지 않습니다.
+    const projectUrl = 'https://tlfyygqfuqqfnmtxkghb.supabase.co';
+    const publishableKey = 'sb_publishable_u1rJENMNeQb_1OgwI2R_TQ_YZ0NP6-E';
+
+    const status = document.querySelector('#auth-status');
+    const errorText = document.querySelector('#auth-error');
+    const loginForm = document.querySelector('#login-form');
+    const signedIn = document.querySelector('#signed-in');
+    const signedInEmail = document.querySelector('#signed-in-email');
+    const loginButton = document.querySelector('#login-button');
+    const logoutButton = document.querySelector('#logout-button');
+    const emailInput = document.querySelector('#login-email');
+    const passwordInput = document.querySelector('#login-password');
+
+    function showError(message) {
+      errorText.textContent = message;
+      errorText.hidden = !message;
+    }
+
+    function updateAuth(user) {
+      loginForm.hidden = Boolean(user);
+      signedIn.hidden = !user;
+      status.textContent = user ? '로그인됨' : '로그아웃 상태';
+      signedInEmail.textContent = user ? `로그인 계정: ${user.email ?? '확인됨'}` : '';
+      if (user) passwordInput.value = '';
+    }
+
+    if (!projectUrl || !publishableKey) {
+      status.textContent = '로그인 설정이 필요합니다.';
+      loginButton.disabled = true;
+      showError('public/index.html에 공개용 Supabase Project URL과 publishable key를 입력해 주세요.');
+    } else if (!publishableKey.startsWith('sb_publishable_')) {
+      status.textContent = '로그인 설정을 확인해 주세요.';
+      loginButton.disabled = true;
+      showError('공개용 sb_publishable_ 키만 사용할 수 있습니다. 서버 전용 Secret key는 사용하지 마세요.');
+    } else {
+      try {
+        const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm');
+        const supabase = createClient(projectUrl, publishableKey);
+        // SDK가 로그인 세션을 관리합니다. JWT 또는 비밀번호를 직접 저장하거나 만들지 않습니다.
+        supabase.auth.onAuthStateChange((_event, session) => {
+          updateAuth(session?.user ?? null);
+        });
+
+        loginForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          showError('');
+          loginButton.disabled = true;
+          try {
+            const { data, error } = await supabase.auth.signInWithPassword({
+              email: emailInput.value.trim(),
+              password: passwordInput.value,
+            });
+            if (error) throw error;
+            if (!data?.user || !data?.session) throw new Error('로그인 세션을 받지 못했습니다. 이메일 인증 상태를 확인해 주세요.');
+            updateAuth(data.user);
+          } catch (error) {
+            showError(`로그인 실패: ${error.message || '로그인 요청을 처리하지 못했습니다.'}`);
+          } finally {
+            passwordInput.value = '';
+            loginButton.disabled = false;
+          }
+        });
+
+        logoutButton.addEventListener('click', async () => {
+          showError('');
+          logoutButton.disabled = true;
+          try {
+            const { error } = await supabase.auth.signOut({ scope: 'local' });
+            if (error) throw error;
+            updateAuth(null);
+          } catch (error) {
+            showError(`로그아웃 실패: ${error.message || '로그아웃 요청을 처리하지 못했습니다.'}`);
+          } finally {
+            logoutButton.disabled = false;
+          }
+        });
+      } catch {
+        status.textContent = '로그인을 시작할 수 없습니다.';
+        loginButton.disabled = true;
+        showError('Supabase 로그인 모듈을 불러오지 못했습니다. 네트워크와 공개 설정값을 확인해 주세요.');
+      }
+    }
+  </script>
   <script type="module">
     const list = document.querySelector('#notes');
     try {
