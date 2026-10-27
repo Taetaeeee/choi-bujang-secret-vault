@@ -14,7 +14,7 @@
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
-`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 초기 자리표시자이며, 이후 제출 묶음 작업 전에 실제 주소와 대조해야 합니다. 이 제작 단위에서는 `step`만 2로 변경했습니다. `npm run bundle`은 현재 제작 단위에 포함하지 않았습니다.
+`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 2입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
 
 로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 기존 `src/attack-check.mjs`는 아직 1단계 자기 점검 방식이므로 2단계 심판 판정으로 사용하지 않습니다.
 
@@ -115,3 +115,11 @@ $data = $response.Content | ConvertFrom-Json
 | 옛 공개 커밋·옛 배포 | 최초 커밋 `ea8ed82`는 정적 메모를 포함했고, 과거 배포 기록도 존재했음 | **과거 노출은 해소되지 않음.** 최신 파일 삭제로 과거 Git 기록이나 이전 Vercel 배포가 자동 삭제되지는 않음 |
 
 검증할 때는 실제 실행한 명령의 결과와 검사한 커밋을 기록합니다. **과거 공개 커밋과 배포 이력이 남아 있는 한 '과거 노출 해소' 또는 '모든 자료 비공개'라고 쓰지 않습니다.** 3단계 전까지는 실제 학생 자료·개인정보를 저장하지 않고 실습용 가상 메모 네 건만 유지합니다.
+
+## 2단계 저장점
+
+- **현재 기능:** Vercel 공개 화면이 `GET /api/notes`로 Supabase의 실습용 가상 메모 네 건을 표시합니다. 서버는 환경변수 `SUPABASE_URL`과 `SUPABASE_SECRET_KEY`를 사용하며, 원문 키를 Git이나 응답에 보관하지 않습니다.
+- **현재 방어:** 최신 GitHub 파일과 현재 정적 배포에서 `data.json` 메모 원본을 제외합니다. `/aleph.json`은 배포 커밋과 `step: 2`를 표시합니다.
+- **남은 약점:** `/api/notes`는 로그인 없이 호출할 수 있습니다. 옛 공개 커밋과 옛 배포에 남은 가상 메모는 현재 배포에서 파일을 지워도 없어지지 않습니다.
+- **다시 실행:** 프로젝트 폴더에서 `npm.cmd run build -- --local`로 정적 빌드를 확인하고, `npm.cmd run test:r5` 및 `npm.cmd run test:package`로 시작 틀 테스트를 실행합니다. 실제 API·배포 동작은 운영 Vercel의 `/`, `/api/notes`, `/data.json`, `/aleph.json`을 비로그인으로 확인합니다.
+- **제출 묶음:** 변경 파일을 커밋한 뒤 로컬 Git 작업 폴더에서 `npm.cmd run bundle`을 실행하고, 성공하면 Git에 포함하지 않는 `artifacts/submission.json`과 실행 요약을 확인합니다. 실행하지 않은 검사는 성공으로 기록하지 않습니다.
