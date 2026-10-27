@@ -12,14 +12,43 @@
     h1 { margin: 16px 0; font-size: clamp(30px, 7vw, 48px); line-height: 1.2; }
     p { font-size: 17px; line-height: 1.7; color: #bfd0e5; }
     .notice { margin: 26px 0; padding: 18px; border: 1px solid #d07384; border-radius: 14px; color: #ffe3e8; background: #612a3544; }
+    ul { list-style: none; display: grid; gap: 12px; padding: 0; }
+    li { border: 1px solid #51667c; border-radius: 14px; padding: 17px 19px; background: #1a2a3d; }
+    strong { display: block; font-size: 18px; margin-bottom: 5px; }
+    li span { color: #bfd0e5; }
   </style>
 </head>
 <body>
   <main>
-    <div class="eyebrow">BYTE BACK · 2단계 자료 이전 준비</div>
+    <div class="eyebrow">BYTE BACK · 2단계 자료 이전</div>
     <h1>내 자료실</h1>
-    <p>자료를 정적 파일에서 분리하는 중입니다. 서버 API 연결 전에는 자료 목록을 표시하지 않습니다.</p>
-    <div class="notice">이전 공개 커밋 및 배포 이력에는 가상 자료가 남아 있을 수 있습니다. 실제 개인정보는 넣지 마세요. 이 화면은 2단계 완료를 뜻하지 않습니다.</div>
+    <p>가상 자료 네 건을 서버 API를 통해 불러옵니다.</p>
+    <div class="notice">이 API는 아직 로그인 없이 접근할 수 있습니다. 이전 공개 커밋·배포 이력에도 가상 자료가 남을 수 있으므로 실제 개인정보는 넣지 마세요.</div>
+    <ul id="notes" aria-live="polite"><li>가상 자료를 불러오는 중입니다.</li></ul>
   </main>
+  <script type="module">
+    const list = document.querySelector('#notes');
+    try {
+      const response = await fetch('/api/notes', { cache: 'no-store', credentials: 'omit' });
+      if (!response.ok) throw new Error('서버 자료를 읽을 수 없습니다.');
+      const data = await response.json();
+      if (!Array.isArray(data.notes) || data.notes.length !== 4) {
+        throw new Error('자료 형식이 맞지 않습니다.');
+      }
+      list.replaceChildren(...data.notes.map(note => {
+        const item = document.createElement('li');
+        const title = document.createElement('strong');
+        const content = document.createElement('span');
+        title.textContent = note.title;
+        content.textContent = note.content;
+        item.append(title, content);
+        return item;
+      }));
+    } catch {
+      const item = document.createElement('li');
+      item.textContent = '가상 자료를 불러오지 못했습니다. 잠시 후 다시 확인해 주세요.';
+      list.replaceChildren(item);
+    }
+  </script>
 </body>
 </html>

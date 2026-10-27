@@ -5,8 +5,8 @@ import { deploymentIdentity } from './deployment-identity.mjs';
 const root = resolve(import.meta.dirname, '..');
 const publicDir = resolve(root, 'public');
 const config = JSON.parse(await readFile(resolve(root, 'aleph.config.json'), 'utf8'));
-if (config.step !== 1) {
-  throw new Error('2단계 서버 API·점검을 완성한 뒤 단계 설정을 갱신하세요.');
+if (!Number.isInteger(config.step) || config.step < 1) {
+  throw new Error('aleph.config.json의 단계가 올바르지 않습니다.');
 }
 await mkdir(publicDir, { recursive: true });
 // 이전 빌드에 남은 정적 메모도 배포에 포함되지 않도록 제거합니다.
