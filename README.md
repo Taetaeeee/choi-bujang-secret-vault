@@ -123,3 +123,27 @@ $data = $response.Content | ConvertFrom-Json
 - **남은 약점:** `/api/notes`는 로그인 없이 호출할 수 있습니다. 옛 공개 커밋과 옛 배포에 남은 가상 메모는 현재 배포에서 파일을 지워도 없어지지 않습니다.
 - **다시 실행:** 프로젝트 폴더에서 `npm.cmd run build -- --local`로 정적 빌드를 확인하고, `npm.cmd run test:r5` 및 `npm.cmd run test:package`로 시작 틀 테스트를 실행합니다. 실제 API·배포 동작은 운영 Vercel의 `/`, `/api/notes`, `/data.json`, `/aleph.json`을 비로그인으로 확인합니다.
 - **제출 묶음:** 변경 파일을 커밋한 뒤 로컬 Git 작업 폴더에서 `npm.cmd run bundle`을 실행하고, 성공하면 Git에 포함하지 않는 `artifacts/submission.json`과 실행 요약을 확인합니다. 실행하지 않은 검사는 성공으로 기록하지 않습니다.
+## 3단계 저장점 (2026-10-28)
+
+### 현재 기능
+
+- Supabase Auth 이메일·비밀번호 로그인/로그아웃과 로그인 실패 이유 표시.
+- 서버는 기존 `src/verify-login.mjs`로 Bearer 토큰을 검증하고, 사용자 ID는 검증 결과에서만 사용. 비로그인 요청은 `401 UNAUTHORIZED`.
+- 신규 가상 메모는 `public.vault_user_notes`에 UUID와 `owner_id`로 저장. 목록은 로그인 사용자의 `owner_id`로 필터링.
+- 메모 추가 `POST /api/notes`는 `{id,title,body}`를 받고 `id` 생략 시 UUID 생성, 응답 `{id}`. 단건 조회·수정·삭제는 `GET/PUT/DELETE /api/notes/:id`, 단건 조회 성공 응답 `{id,title,body}`. 삭제 후 인증된 GET은 `404 NOT_FOUND`.
+- 기존 `public.vault_notes`의 실습용 가상 자료 4건은 별도 읽기 전용 카드로 보존.
+
+### 설정과 검증
+
+- `aleph.config.json`: `step: 3`, `repoUrl`과 `publicAppUrl`은 실제 저장소·Vercel 주소. `identityProvider`에는 Supabase Auth issuer·JWKS URL·audience를 공개 정보로 기록. `judgeIssuer`는 변경하지 않음.
+- `allowedRoutes`: `GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`.
+- 사용자 화면에서 A 계정 로그인, 로그아웃, 실패 안내, 메모 추가·수정·삭제와 새로고침 유지를 확인. 비로그인 `GET /api/notes`는 실제 `401 UNAUTHORIZED`와 `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`를 확인. 삭제된 UUID에 인증된 GET을 보내 `404 NOT_FOUND` 확인.
+- **현재 남은 취약점:** 단건 GET·PUT·DELETE에서는 로그인 여부만 검사하고 `owner_id`는 검사하지 않음. 다른 로그인 사용자가 UUID를 알면 접근할 수 있는 허점을 4단계에서 수정. B 계정의 실제 교차 접근 시험은 4단계에서 수행.
+- 정적 `/data.json`은 최신 빌드에서 제외. 이전 공개 커밋이나 과거 배포에 가상 자료가 남아 있을 수 있으므로 실제 개인정보를 넣지 않음.
+- 로컬 자동 테스트와 학생의 자체 점검은 공식 심판 판정이 아님.
+
+### 재실행·제출 절차
+
+1. `npm.cmd run build -- --local`, `npm.cmd run test:r5`, `npm.cmd run test:package`로 기존 기능을 확인. 실제 배포 기능은 Vercel에서 별도로 확인.
+2. 로그인 없이 `/api/notes`의 401을 확인하고 A 로그인 후 메모 CRUD, 삭제 후 인증된 단건 GET 404를 확인. `/aleph.json`의 `step: 3`, `/`의 `nosniff`도 확인.
+3. 저장점 커밋 후 로컬의 Git 제외 파일 `bundle-notes.json`에 실습 내용만 적고 `npm.cmd run bundle`을 실행. `artifacts/submission.json`과 실행 요약을 확인하되 JSON은 Git에 커밋하지 않음. 실패 시 첫 오류만 수정.
