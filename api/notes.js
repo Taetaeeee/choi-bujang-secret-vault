@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
+import config from '../aleph.config.json' with { type: 'json' };
+import { createLoginVerifier } from '../src/verify-login.mjs';
 
-// 2단계: 서버가 학습용 DB에서 가상 메모만 읽습니다.
-// 로그인 검사는 3단계 과제로 남깁니다. 이 API는 누구나 요청할 수 있습니다.
+// 3단계: 검증된 Bearer 토큰이 있는 요청만 가상 메모를 읽습니다.
+// 학생 신원과 심판 신원은 시작 틀의 검증 도우미가 확인합니다.
+let verifyLogin;
 export default async function handler(request, response) {
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('X-Content-Type-Options', 'nosniff');
@@ -11,10 +14,27 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
   }
 
+  // 요청 본문/쿼리의 userId·role 대신 Authorization 헤더만 검사합니다.
+  const authorization = request.headers?.authorization;
+  if (!authorization) {
+    return response.status(401).json({ error: 'UNAUTHORIZED' });
+  }
+
   const url = process.env.SUPABASE_URL;
   const secretKey = process.env.SUPABASE_SECRET_KEY;
   if (!url || !secretKey) {
     return response.status(503).json({ error: 'SERVICE_UNAVAILABLE' });
+  }
+
+  let verifiedIdentity;
+  try {
+    verifyLogin ??= createLoginVerifier({ config, supabaseSecretKey: secretKey });
+    verifiedIdentity = await verifyLogin(authorization);
+  } catch {
+    return response.status(401).json({ error: 'UNAUTHORIZED' });
+  }
+  if (!verifiedIdentity) {
+    return response.status(401).json({ error: 'UNAUTHORIZED' });
   }
 
   try {
