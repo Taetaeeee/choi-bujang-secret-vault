@@ -39,10 +39,10 @@
 </head>
 <body>
   <main>
-    <div class="eyebrow">BYTE BACK · 4단계 소유자 접근 제한</div>
+    <div class="eyebrow">BYTE BACK · 5단계 서버 경유 자료 요청</div>
     <h1>내 자료실</h1>
     <p>로그인 계정에 속한 실습용 가상 메모만 조회하고 관리합니다.</p>
-    <div class="notice">서버에서 로그인과 메모 소유자를 확인하여 다른 계정의 자료 접근을 거부합니다. DB 권한·RLS 강화는 다음 제작에서 진행합니다. 실제 개인정보는 넣지 마세요.</div>
+    <div class="notice">서버에서 로그인과 메모 소유자를 확인하고, 원본 메모 테이블의 직접 접근 권한은 회수했습니다. 실제 개인정보는 넣지 마세요.</div>
     <section class="auth" aria-labelledby="auth-heading">
       <h2 id="auth-heading">이메일 로그인</h2>
       <p id="auth-status" role="status" aria-live="polite">로그인 상태를 확인하는 중입니다.</p>
@@ -79,10 +79,10 @@
     </section>
   </main>
   <script type="module">
-    // 3단계 제작 1: 공개용 값만 입력합니다. 서버 전용 Secret key는 절대 넣지 않습니다.
-    const projectUrl = 'https://tlfyygqfuqqfnmtxkghb.supabase.co';
-    const publishableKey = 'sb_publishable_u1rJENMNeQb_1OgwI2R_TQ_YZ0NP6-E';
-
+    // 5단계 보너스: Supabase Auth는 Vercel /api/auth 서버 함수를 통해서만 사용합니다.
+    // 브라우저에는 Supabase 프로젝트 URL/공개 키/서버 비밀 키를 넣지 않습니다.
+    // 이 학습용 버전은 탭 단위 sessionStorage를 사용합니다. 실서비스의 HttpOnly 쿠키 인증은 별도 설계가 필요합니다.
+    const STORAGE_KEY = 'byte-back-vault-browser-session-v1';
     const status = document.querySelector('#auth-status');
     const errorText = document.querySelector('#auth-error');
     const loginForm = document.querySelector('#login-form');
@@ -107,7 +107,10 @@
     let activeSession = null;
     let currentNotes = [];
     let editingNoteId = null;
-    let supabase;
+    let currentSession = null;
+    let currentUser = null;
+    let pendingRefresh = null;
+    let sessionRevision = 0;
 
     function showNoteMessage(message) {
       const item = document.createElement('li');
@@ -120,6 +123,11 @@
       noteError.hidden = !message;
     }
 
+    function showError(message) {
+      errorText.textContent = message;
+      errorText.hidden = !message;
+    }
+
     function resetNoteForm() {
       noteForm.reset();
       editingNoteId = null;
@@ -127,14 +135,100 @@
       noteCancel.hidden = true;
     }
 
-    async function authFetch(path, options = {}) {
-      const { data, error } = await supabase.auth.getSession();
-      if (error || !data?.session?.access_token) throw new Error('로그인이 필요합니다.');
-      const headers = { Authorization: `Bearer ${data.session.access_token}` };
-      if (options.body) headers['Content-Type'] = 'application/json';
-      const response = await fetch(path, {
-        ...options, headers, cache: 'no-store', credentials: 'omit',
+    function updateAuth(user) {
+      loginForm.hidden = Boolean(user);
+      signedIn.hidden = !user;
+      status.textContent = user ? '로그인됨' : '로그아웃 상태';
+      signedInEmail.textContent = user ? `로그인 계정: ${user.email ?? '확인됨'}` : '';
+      if (user) passwordInput.value = '';
+    }
+
+    function validSession(value) {
+      return Boolean(value && typeof value.access_token === 'string'
+        && value.access_token.length > 0 && typeof value.refresh_token === 'string'
+        && value.refresh_token.length > 0);
+    }
+
+    function storeSession(payload) {
+      if (!validSession(payload?.session) || !payload?.user
+          || typeof payload.user.id !== 'string') throw new Error('로그인 세션 형식이 올바르지 않습니다.');
+      sessionRevision += 1;
+      currentSession = payload.session;
+      currentUser = payload.user;
+      // 기존 세션을 매번 덮어써 단일 사용 refresh token을 재사용하지 않습니다.
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+        session: currentSession, user: currentUser,
+      }));
+      updateAuth(currentUser);
+    }
+
+    function clearSession() {
+      sessionRevision += 1;
+      currentSession = null;
+      currentUser = null;
+      sessionStorage.removeItem(STORAGE_KEY);
+      updateAuth(null);
+      void loadNotes(null);
+    }
+
+    async function authAction(action, payload = {}) {
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ...payload }),
+        cache: 'no-store',
+        credentials: 'omit',
       });
+      let result;
+      try { result = await response.json(); } catch {
+        throw new Error(`인증 서버 응답 오류 (HTTP ${response.status})`);
+      }
+      if (!response.ok) throw new Error(result.message || result.error || `인증 요청 실패 (HTTP ${response.status})`);
+      return result;
+    }
+
+    async function accessToken(forceRefresh = false) {
+      if (!validSession(currentSession)) throw new Error('로그인이 필요합니다.');
+      const expiresAt = Number(currentSession.expires_at);
+      const expiring = !Number.isFinite(expiresAt) || expiresAt * 1000 - Date.now() < 60000;
+      if (forceRefresh || expiring) {
+        if (!pendingRefresh) {
+          const refreshToken = currentSession.refresh_token;
+          const revision = sessionRevision;
+          pendingRefresh = authAction('refresh', { refresh_token: refreshToken })
+            .then(payload => {
+              if (sessionRevision !== revision || currentSession?.refresh_token !== refreshToken) {
+                throw new Error('세션이 변경되었습니다.');
+              }
+              storeSession(payload);
+            })
+            .catch(() => {
+              if (sessionRevision === revision) clearSession();
+              throw new Error('로그인이 만료되었습니다. 다시 로그인해 주세요.');
+            })
+            .finally(() => { pendingRefresh = null; });
+        }
+        await pendingRefresh;
+      }
+      if (!validSession(currentSession)) throw new Error('로그인이 필요합니다.');
+      return currentSession.access_token;
+    }
+
+    async function authFetch(path, options = {}) {
+      const request = token => fetch(path, {
+        ...options,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(options.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        },
+        cache: 'no-store',
+        credentials: 'omit',
+      });
+      let response = await request(await accessToken());
+      // JWT 만료 시 공식 Auth 서버에서 새 토큰을 받고 한 번만 재시도합니다.
+      if (response.status === 401 && currentSession?.refresh_token) {
+        response = await request(await accessToken(true));
+      }
       if (!response.ok) {
         if (response.status === 401) throw new Error('로그인이 만료되었거나 인증되지 않았습니다.');
         if (response.status === 404) throw new Error('메모가 존재하지 않습니다.');
@@ -177,7 +271,7 @@
           try {
             await authFetch(`/api/notes/${encodeURIComponent(note.id)}`, { method: 'DELETE' });
             if (editingNoteId === note.id) resetNoteForm();
-            await loadNotes(activeSession);
+            await loadNotes(currentSession);
           } catch (error) {
             showNoteError(error.message);
           } finally {
@@ -192,11 +286,11 @@
     async function loadNotes(session) {
       const requestNumber = ++notesRequestNumber;
       activeSession = session;
-      const signedIn = Boolean(session?.access_token);
-      notesLocked.hidden = signedIn;
-      ownSection.hidden = !signedIn;
-      sampleSection.hidden = !signedIn;
-      if (!signedIn) {
+      const hasSession = validSession(session);
+      notesLocked.hidden = hasSession;
+      ownSection.hidden = !hasSession;
+      sampleSection.hidden = !hasSession;
+      if (!hasSession) {
         currentNotes = [];
         resetNoteForm();
         showNoteError('');
@@ -212,7 +306,6 @@
         }
         if (requestNumber !== notesRequestNumber) return;
         renderOwnedNotes(data.notes);
-        // A에게 소유권이 있는 기존 4건만 표시하고 B에게는 빈 구역을 숨깁니다.
         sampleSection.hidden = data.sampleNotes.length === 0;
         sampleList.replaceChildren(...data.sampleNotes.map(note => {
           const item = document.createElement('li');
@@ -242,7 +335,7 @@
           body: JSON.stringify({ title: noteTitle.value.trim(), body: noteBody.value.trim() }),
         });
         resetNoteForm();
-        await loadNotes(activeSession);
+        await loadNotes(currentSession);
       } catch (error) {
         showNoteError(error.message);
       } finally {
@@ -251,76 +344,59 @@
     });
     noteCancel.addEventListener('click', () => resetNoteForm());
 
-    function showError(message) {
-      errorText.textContent = message;
-      errorText.hidden = !message;
-    }
-
-    function updateAuth(user) {
-      loginForm.hidden = Boolean(user);
-      signedIn.hidden = !user;
-      status.textContent = user ? '로그인됨' : '로그아웃 상태';
-      signedInEmail.textContent = user ? `로그인 계정: ${user.email ?? '확인됨'}` : '';
-      if (user) passwordInput.value = '';
-    }
-
-    if (!projectUrl || !publishableKey) {
-      status.textContent = '로그인 설정이 필요합니다.';
+    loginForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      showError('');
       loginButton.disabled = true;
-      showError('public/index.html에 공개용 Supabase Project URL과 publishable key를 입력해 주세요.');
-    } else if (!publishableKey.startsWith('sb_publishable_')) {
-      status.textContent = '로그인 설정을 확인해 주세요.';
-      loginButton.disabled = true;
-      showError('공개용 sb_publishable_ 키만 사용할 수 있습니다. 서버 전용 Secret key는 사용하지 마세요.');
-    } else {
       try {
-        const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm');
-        supabase = createClient(projectUrl, publishableKey);
-        // SDK가 로그인 세션을 관리합니다. JWT 또는 비밀번호를 직접 저장하거나 만들지 않습니다.
-        supabase.auth.onAuthStateChange((_event, session) => {
-          updateAuth(session?.user ?? null);
-          void loadNotes(session);
+        const payload = await authAction('login', {
+          email: emailInput.value.trim(), password: passwordInput.value,
         });
-
-        loginForm.addEventListener('submit', async (event) => {
-          event.preventDefault();
-          showError('');
-          loginButton.disabled = true;
-          try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-              email: emailInput.value.trim(),
-              password: passwordInput.value,
-            });
-            if (error) throw error;
-            if (!data?.user || !data?.session) throw new Error('로그인 세션을 받지 못했습니다. 이메일 인증 상태를 확인해 주세요.');
-            updateAuth(data.user);
-          } catch (error) {
-            showError(`로그인 실패: ${error.message || '로그인 요청을 처리하지 못했습니다.'}`);
-          } finally {
-            passwordInput.value = '';
-            loginButton.disabled = false;
-          }
-        });
-
-        logoutButton.addEventListener('click', async () => {
-          showError('');
-          logoutButton.disabled = true;
-          try {
-            const { error } = await supabase.auth.signOut({ scope: 'local' });
-            if (error) throw error;
-            updateAuth(null);
-            void loadNotes(null);
-          } catch (error) {
-            showError(`로그아웃 실패: ${error.message || '로그아웃 요청을 처리하지 못했습니다.'}`);
-          } finally {
-            logoutButton.disabled = false;
-          }
-        });
-      } catch {
-        status.textContent = '로그인을 시작할 수 없습니다.';
-        loginButton.disabled = true;
-        showError('Supabase 로그인 모듈을 불러오지 못했습니다. 네트워크와 공개 설정값을 확인해 주세요.');
+        storeSession(payload);
+        await loadNotes(currentSession);
+      } catch (error) {
+        showError(`로그인 실패: ${error.message || '로그인 요청을 처리하지 못했습니다.'}`);
+      } finally {
+        passwordInput.value = '';
+        loginButton.disabled = false;
       }
+    });
+
+    logoutButton.addEventListener('click', async () => {
+      showError('');
+      logoutButton.disabled = true;
+      const oldSession = currentSession;
+      clearSession();
+      try {
+        if (validSession(oldSession)) {
+          await authAction('logout', {
+            access_token: oldSession.access_token,
+            refresh_token: oldSession.refresh_token,
+          });
+        }
+      } catch {
+        // 서버 요청에 실패하더라도 브라우저의 로그인 토큰은 반드시 제거합니다.
+        showError('브라우저에서는 로그아웃했지만 서버 세션 종료를 확인하지 못했습니다.');
+      } finally {
+        logoutButton.disabled = false;
+      }
+    });
+
+    // 기존 Supabase SDK의 localStorage 세션은 읽지 않습니다. 이 화면의 세션만 사용합니다.
+    try {
+      const old = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? 'null');
+      if (validSession(old?.session) && typeof old?.user?.id === 'string') {
+        currentSession = old.session;
+        currentUser = old.user;
+      }
+    } catch { /* 손상된 브라우저 세션은 폐기합니다. */ }
+    if (currentSession) {
+      updateAuth(currentUser);
+      void loadNotes(currentSession);
+    } else {
+      sessionStorage.removeItem(STORAGE_KEY);
+      updateAuth(null);
+      void loadNotes(null);
     }
   </script>
 </body>

@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
@@ -73,9 +71,7 @@ export async function runAttackChecks(config) {
           || original.search || original.hash || original.username || original.password) {
         throw new Error('originalApiUrl의 HTTPS 원본 자료 경로를 확인해 주세요.');
       }
-      const source = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
-      const match = /const\s+publishableKey\s*=\s*'(?<key>sb_publishable_[A-Za-z0-9_-]+)'/u.exec(source);
-      const publishable = match?.groups?.key ?? process.env.SUPABASE_PUBLISHABLE_KEY;
+      const publishable = process.env.SUPABASE_PUBLISHABLE_KEY;
       if (typeof publishable !== 'string' || !/^sb_publishable_[A-Za-z0-9_-]+$/u.test(publishable)) {
         throw new Error('5단계 직접 점검에 사용할 Supabase 공개 키를 찾지 못했습니다.');
       }
