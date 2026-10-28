@@ -1,7 +1,9 @@
+import { readFile } from 'node:fs/promises';
+
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -13,7 +15,7 @@ export async function runAttackChecks(config) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
   }
   if (typeof config.sampleMarker !== 'string' || !config.sampleMarker) throw new Error('가상 메모의 확인 표시를 넣어 주세요.');
-  if (config.step === 3 || config.step === 4) {
+  if (config.step === 3 || config.step === 4 || config.step === 5) {
     // 공개 경로에 실제 비인증 요청을 보냅니다. 토큰과 본문은 기록하지 않습니다.
     const options = { redirect: 'error', signal: AbortSignal.timeout(10000), credentials: 'omit' };
     const [staticResponse, apiResponse, deploymentResponse, pageResponse] = await Promise.all([
@@ -47,7 +49,7 @@ export async function runAttackChecks(config) {
           && data.repoUrl.toLowerCase() === config.repoUrl.toLowerCase();
       } catch { /* 잘못된 JSON */ }
     }
-    return [
+    const checks = [
       { attackId: 'static_note_read',
         expected: '비로그인 /data.json에서 가상 메모가 노출되지 않음',
         observed: `HTTP ${staticResponse.status}; 정적 메모 노출 ${exposed}` },
@@ -61,6 +63,33 @@ export async function runAttackChecks(config) {
         expected: '화면 응답 헤더 X-Content-Type-Options: nosniff',
         observed: `HTTP ${pageResponse.status}; nosniff ${pageResponse.headers.get('x-content-type-options') === 'nosniff'}` },
     ];
+    if (config.step === 5) {
+      // 공개 키로 원본 Data API에 직접 접근하는 실제 비인증 요청입니다.
+      // 키나 API 응답 본문은 제출 결과와 로그에 포함하지 않습니다.
+      const original = new URL(config.originalApiUrl);
+      const issuer = new URL(config.identityProvider?.issuer ?? '');
+      if (original.protocol !== 'https:' || original.origin !== issuer.origin
+          || original.pathname !== '/rest/v1/vault_user_notes'
+          || original.search || original.hash || original.username || original.password) {
+        throw new Error('originalApiUrl의 HTTPS 원본 자료 경로를 확인해 주세요.');
+      }
+      const source = await readFile(new URL('../public/index.html', import.meta.url), 'utf8');
+      const match = /const\s+publishableKey\s*=\s*'(?<key>sb_publishable_[A-Za-z0-9_-]+)'/u.exec(source);
+      const publishable = match?.groups?.key ?? process.env.SUPABASE_PUBLISHABLE_KEY;
+      if (typeof publishable !== 'string' || !/^sb_publishable_[A-Za-z0-9_-]+$/u.test(publishable)) {
+        throw new Error('5단계 직접 점검에 사용할 Supabase 공개 키를 찾지 못했습니다.');
+      }
+      const originalResponse = await fetch(original, {
+        redirect: 'error', signal: AbortSignal.timeout(10000),
+        headers: { apikey: publishable },
+      });
+      checks.push({
+        attackId: 'direct_original_api_read',
+        expected: 'anon 공개 키로 원본 메모 API에 직접 요청 시 401 또는 403으로 거부됨',
+        observed: `HTTP ${originalResponse.status}; 직접 접근 차단 ${[401, 403].includes(originalResponse.status)}`,
+      });
+    }
+    return checks;
   }
   if (config.step === 2) {
     const staticResponse = await fetch(new URL('/data.json', app), {

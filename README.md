@@ -1,6 +1,6 @@
 # BYTE BACK 방어전 시작 틀 R5
 
-이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **4**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
+이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **5**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
 ## 1단계 기록 — 학생이 했던 세 걸음
 
@@ -14,9 +14,9 @@
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
-`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 4입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
+`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 5입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
 
-로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. `src/attack-check.mjs`는 4단계의 공개 경로에 직접 비인증 요청을 보내 결과를 기록합니다. 이 학생 자기 점검은 공식 심판 판정이 아닙니다.
+로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. `src/attack-check.mjs`는 5단계의 공개 경로 및 Supabase 원본 API에 직접 비인증 요청을 보내 결과를 기록합니다. 이 학생 자기 점검은 공식 심판 판정이 아닙니다.
 
 ## 다음 단계의 코딩 도구에 전달할 규칙
 
@@ -179,3 +179,25 @@ $data = $response.Content | ConvertFrom-Json
 1. `npm.cmd run build -- --local`, `npm.cmd run test:r5`, `npm.cmd run test:package`로 기존 빌드와 회귀 검사를 실행합니다.
 2. 배포가 최신 Git 커밋인지 `/aleph.json`에서 확인하고, 비로그인 목록의 401 JSON 오류, `/data.json` 404, 첫 화면의 `nosniff`를 확인합니다. 로그인된 A/B의 본인 조회와 상대 UUID GET 거부를 점검합니다. 5단계 후에도 화면에서 재검증합니다.
 3. `bundle-notes.json`의 `explanation`을 4단계의 실제 구현 내용으로 갱신하되 토큰·이메일·메모 본문은 제외합니다. `4단계 저장점`을 커밋·Push한 다음 `npm.cmd run bundle`을 실행해 `artifacts/submission.json`의 실제 결과와 출력 요약을 확인합니다. 두 파일(`bundle-notes.json`, `artifacts/submission.json`)은 Git에 올리지 않습니다.
+## 5단계 저장점 (2026-10-28)
+
+### 현재 기능과 변경 범위
+
+- 브라우저의 메모 GET·POST·PUT·DELETE는 모두 `/api/notes` 및 `/api/notes/:id`의 Vercel 서버 함수로 전달됩니다. 브라우저에서 Supabase 메모 테이블을 직접 읽거나 수정하는 호출은 발견되지 않아 화면·로그인 코드는 변경하지 않았습니다.
+- Supabase Auth의 로그인·로그아웃과 세션 관리는 브라우저에 유지하고, 기존 `src/verify-login.mjs`의 토큰 검증과 서버 API의 `owner_id` 소유자 검사는 그대로 유지합니다. 서버 전용 `SUPABASE_SECRET_KEY`는 Vercel 서버 환경변수로만 관리합니다.
+- `public.vault_user_notes` 한 테이블에서 `PUBLIC`, `anon`, `authenticated`의 직접 테이블 권한을 `REVOKE ALL`로 회수했습니다. 기존 RLS 정책 정의는 삭제하지 않았으며 다른 테이블의 권한은 건드리지 않았습니다.
+- SQL Editor의 `information_schema.role_table_grants` 및 `has_table_privilege` 검사에서 회수 전 authenticated CRUD 4개 권한을 확인했고, 회수 후 anon·authenticated 모두 SELECT·INSERT·UPDATE·DELETE·TRUNCATE·REFERENCES·TRIGGER가 `false`, 개별 GRANT는 `NULL`임을 확인했습니다.
+- 원본 자료 경로 `https://tlfyygqfuqqfnmtxkghb.supabase.co/rest/v1/vault_user_notes`를 `aleph.config.json`의 `originalApiUrl`에 쿼리 없이 기록하고 `step: 5`로 설정했습니다. 기존 `allowedRoutes` 5개, `identityProvider`, `judgeIssuer`는 보존했습니다.
+
+### 확인된 동작과 주의사항
+
+- 권한 회수 전 A 계정의 조회·추가·수정·삭제를 화면에서 확인했습니다. 회수 후에도 A 자기 메모 조회와 별도 시험 메모의 추가·수정·삭제가 유지됨을 화면으로 확인했습니다. 기존 A 메모는 보존했습니다.
+- 공개용 `sb_publishable_` 키만 사용한 원본 Supabase Data API GET 실측 결과는 **HTTP 401**이었습니다. 서버 함수가 대신 DB에 접근할 수 있는 것과 직접 Data API가 차단되는 것은 별도의 검사입니다.
+- 4단계 A/B 소유권 검사 결과는 유지되지만, 5단계 권한 회수 후 B 계정의 CRUD 및 교차 접근 요청은 이 저장점에서 별도로 재실행하지 않았습니다. 자기 점검은 실제로 호출한 공개 경로 및 원본 GET만 기록하며, 인증 세션 시험을 자동 재실행한 것으로 주장하지 않습니다.
+- 보너스 조건의 `allowedRoutes`는 5개를 유지하고 첫 화면의 `X-Content-Type-Options: nosniff`도 유지합니다. 브라우저의 공개 `sb_publishable_` 키는 Supabase Auth를 위해 남아 있으므로 **공개 키 완전 제거 보너스는 달성했다고 주장하지 않습니다.**
+
+### 재실행 및 제출
+
+1. `npm.cmd run build -- --local`, `npm.cmd run test:r5`, `npm.cmd run test:package`로 회귀 검사를 실행합니다. 운영 배포의 실제 메모 기능은 A 로그인 후 별도 확인합니다.
+2. Vercel의 `/aleph.json`에서 `step: 5`와 커밋 일치를 확인하고, 공개 `/data.json` 404, 비로그인 `/api/notes`의 401 JSON, `/`의 `nosniff`, 원본 `originalApiUrl`에서 anon 공개 키 GET 401/403을 재점검합니다.
+3. `bundle-notes.json`의 `explanation`을 5단계의 확인된 내용으로만 갱신하고, `5단계 저장점` 커밋 및 Push 후 `npm.cmd run bundle`을 실행합니다. `bundle-notes.json`과 `artifacts/submission.json`은 Git에 커밋하지 않습니다. 공식 심판 점수는 별도입니다.
