@@ -1,6 +1,6 @@
 # BYTE BACK 방어전 시작 틀 R5
 
-이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **2**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
+이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **4**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
 ## 1단계 기록 — 학생이 했던 세 걸음
 
@@ -14,9 +14,9 @@
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
-`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 2입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
+`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 4입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
 
-로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. 기존 `src/attack-check.mjs`는 아직 1단계 자기 점검 방식이므로 2단계 심판 판정으로 사용하지 않습니다.
+로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. `src/attack-check.mjs`는 4단계의 공개 경로에 직접 비인증 요청을 보내 결과를 기록합니다. 이 학생 자기 점검은 공식 심판 판정이 아닙니다.
 
 ## 다음 단계의 코딩 도구에 전달할 규칙
 
@@ -147,3 +147,35 @@ $data = $response.Content | ConvertFrom-Json
 1. `npm.cmd run build -- --local`, `npm.cmd run test:r5`, `npm.cmd run test:package`로 기존 기능을 확인. 실제 배포 기능은 Vercel에서 별도로 확인.
 2. 로그인 없이 `/api/notes`의 401을 확인하고 A 로그인 후 메모 CRUD, 삭제 후 인증된 단건 GET 404를 확인. `/aleph.json`의 `step: 3`, `/`의 `nosniff`도 확인.
 3. 저장점 커밋 후 로컬의 Git 제외 파일 `bundle-notes.json`에 실습 내용만 적고 `npm.cmd run bundle`을 실행. `artifacts/submission.json`과 실행 요약을 확인하되 JSON은 Git에 커밋하지 않음. 실패 시 첫 오류만 수정.
+## 4단계 저장점 (2026-10-28)
+
+### 현재 기능과 3단계 대비 변경
+
+- 앞의 1~3단계 기록은 각 당시 상태를 설명한 이력입니다. **현재** `aleph.config.json`은 `step: 4`이며 배포 주소와 Supabase Auth 발급자 설정을 유지합니다. `judgeIssuer`는 변경하지 않습니다.
+- Supabase Auth 로그인 토큰을 기존 `src/verify-login.mjs`로 확인하고, 비로그인 `GET /api/notes`는 HTTP 401 JSON `UNAUTHORIZED`로 거부합니다. 서버는 URL·본문의 `userId`·`role`·`owner_id`를 신뢰하지 않습니다.
+- `public.vault_user_notes`의 목록·단건 GET·PUT·DELETE는 **서버에서 검증한 사용자 ID와 DB `owner_id`가 일치하는 행**만 대상으로 합니다. 타인 UUID 접근은 메모의 존재 여부를 공개하지 않도록 404 `NOT_FOUND`로 응답합니다.
+- POST는 `{id,title,body}` (`id` 생략 시 UUID 생성), 응답 `{id}`이고, `owner_id`는 검증된 ID로 지정합니다. PUT은 `{title,body}`만 허용하고 수정 전후 소유권을 유지하며 단건 응답은 `{id,title,body}`입니다. 본문으로 소유자 변경을 시도하면 400 `INVALID_NOTE`입니다.
+- `public.vault_notes`의 기존 네 건은 A 계정 소유로 연결해 **A에게만 읽기 전용**으로 표시합니다. B에게는 이 네 건이 표시되지 않습니다. 기존 4건의 테이블 권한·RLS는 이번 제작에서 변경하지 않았습니다.
+- `aleph.config.json` 허용 경로: `GET /api/notes`, `POST /api/notes`, `GET /api/notes/:id`, `PUT /api/notes/:id`, `DELETE /api/notes/:id`.
+
+### 학습 DB 정책 (SQL Editor에서 실행·검증)
+
+- `public.vault_user_notes`에 한해 `REVOKE ALL ... FROM PUBLIC, anon, authenticated` 후 `authenticated`에 SELECT·INSERT·UPDATE·DELETE만 GRANT했습니다. `anon`에는 테이블 권한이 없습니다.
+- RLS 활성화 상태 `true`. `authenticated` 역할의 4개 정책을 적용했습니다: SELECT·DELETE는 `USING (auth.uid() = owner_id)`, INSERT는 `WITH CHECK (auth.uid() = owner_id)`, UPDATE는 기존 행 `USING`과 새 행 `WITH CHECK`를 모두 검사합니다.
+- SQL Editor에서 `information_schema.role_table_grants`와 `has_table_privilege`를 적용 전후 비교했고, 적용 후 `anon` 7개 권한 모두 `false`, `authenticated`는 CRUD 4개 `true` / TRUNCATE·REFERENCES·TRIGGER `false`를 확인했습니다.
+- 서버 API는 서버 전용 키의 `service_role`로 DB에 접근할 수 있어 RLS를 우회할 수 있습니다. 따라서 **앱 소유자 검사 결과와 RLS 정책 정의·GRANT 검증은 별개의 근거**입니다. `authenticated` 역할의 직접 Data API 점검을 했다고 주장하지 않습니다.
+
+### 학생이 실제 확인한 동작과 한계
+
+- A/B 로그인 후 본인 목록만 보임: A는 기존 읽기 전용 4건과 자신의 UUID 메모, B는 자신의 시험 메모만 조회됨. B의 새 메모 POST·PUT·DELETE는 4단계 API 변경 후 확인했습니다.
+- B 로그인으로 A의 UUID에 GET·PUT·DELETE 요청을 보내 각각 HTTP 404 `NOT_FOUND`를 확인했고, 이후 A가 로그인해 원본 보존을 확인했습니다. A 로그인으로 B UUID에 GET을 보내 HTTP 404를 확인했습니다.
+- A가 PUT 본문에 `owner_id`를 보낸 시험은 HTTP 400 `INVALID_NOTE`로 거부됐습니다.
+- RLS 적용 후 A/B 자기 목록이 유지되었고 B의 새 시험 메모 POST·PUT·DELETE 동작을 확인했습니다. RLS 적용 후 A의 POST·PUT·DELETE 실측 및 A→B PUT·DELETE 실측은 수행하지 않았습니다.
+- 직접 점검(`src/attack-check.mjs`)은 **토큰 없이 공개 URL로 다시 보낸 요청** 4개만 기록합니다: `/data.json`, `/api/notes`, `/aleph.json`, `/` 보안 헤더. 위 A/B 수동 실측을 번들 실행 과정에서 재현했다고 기록하지 않습니다.
+- 옛 공개 Git 커밋·Vercel 배포에는 가상 자료가 남을 수 있으며 실제 개인정보는 넣지 않습니다. 공식 심판의 성공 판정은 별도입니다.
+
+### 재실행과 제출 묶음
+
+1. `npm.cmd run build -- --local`, `npm.cmd run test:r5`, `npm.cmd run test:package`로 기존 빌드와 회귀 검사를 실행합니다.
+2. 배포가 최신 Git 커밋인지 `/aleph.json`에서 확인하고, 비로그인 목록의 401 JSON 오류, `/data.json` 404, 첫 화면의 `nosniff`를 확인합니다. 로그인된 A/B의 본인 조회와 상대 UUID GET 거부를 점검합니다. 5단계 후에도 화면에서 재검증합니다.
+3. `bundle-notes.json`의 `explanation`을 4단계의 실제 구현 내용으로 갱신하되 토큰·이메일·메모 본문은 제외합니다. `4단계 저장점`을 커밋·Push한 다음 `npm.cmd run bundle`을 실행해 `artifacts/submission.json`의 실제 결과와 출력 요약을 확인합니다. 두 파일(`bundle-notes.json`, `artifacts/submission.json`)은 Git에 올리지 않습니다.
