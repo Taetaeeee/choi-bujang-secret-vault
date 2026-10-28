@@ -43,7 +43,8 @@ export async function runAttackChecks(config) {
       try {
         const data = await deploymentResponse.json();
         stepMatches = data?.step === 3;
-        repoMatches = data?.repoUrl === config.repoUrl;
+        repoMatches = typeof data?.repoUrl === 'string'
+          && data.repoUrl.toLowerCase() === config.repoUrl.toLowerCase();
       } catch { /* 잘못된 JSON */ }
     }
     return [
