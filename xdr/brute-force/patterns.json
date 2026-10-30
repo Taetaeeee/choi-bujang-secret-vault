@@ -1,0 +1,20 @@
+{
+  "technique": "T1110",
+  "reference": "https://attack.mitre.org/techniques/T1110/",
+  "patterns": [
+    {
+      "id": "password-guessing",
+      "name": "동일 출발 주소와 계정의 반복 로그인 실패",
+      "condition": "짧은 시간 동안 동일한 data.srcip와 data.srcuser 조합에서 로그인 실패가 연속 발생했다는 Wazuh 경보를 찾는다.",
+      "evidence": "MITRE ATT&CK T1110.001: 하나의 계정에 비밀번호를 반복 추측하면 다수의 인증 실패가 발생할 수 있다.",
+      "reference": "https://attack.mitre.org/techniques/T1110/001/"
+    },
+    {
+      "id": "password-spraying",
+      "name": "동일 출발 주소의 여러 계정에 동일 비밀번호 시도",
+      "condition": "동일 data.srcip에서 여러 계정(data.accounts 등)에 같은 비밀번호를 시도했다는 내용이 Wazuh 경보 설명에 명시된 경우를 찾는다.",
+      "evidence": "MITRE ATT&CK T1110.003: 하나 또는 소수의 비밀번호를 여러 계정에 반복 시도하는 행위는 Password Spraying에 해당한다.",
+      "reference": "https://attack.mitre.org/techniques/T1110/003/"
+    }
+  ]
+}
