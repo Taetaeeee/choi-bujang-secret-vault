@@ -19,6 +19,7 @@
 | 3단계 | Supabase Auth 및 로그인 기반 메모 기능 | README 근거 요약 | [stage-03.md](stages/stage-03.md) |
 | 4단계 | 서버 소유자 확인·RLS·교차 접근 차단 | README 근거 요약 | [stage-04.md](stages/stage-04.md) |
 | 5단계 | Supabase 직접 테이블 권한 회수 | README 근거 요약 | [stage-05.md](stages/stage-05.md) |
+| 6단계 | 등록된 기기의 자료실 읽기 판정 | 제작 1~3 검증 기록 · 심판 미확인 | [stage-06.md](stages/stage-06.md) |
 
 ## XDR 보너스 — 제작 단계별 기록
 
