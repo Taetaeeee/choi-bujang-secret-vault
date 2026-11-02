@@ -1,0 +1,27 @@
+{
+  "technique": "T1190",
+  "reference": "https://attack.mitre.org/techniques/T1190/",
+  "patterns": [
+    {
+      "id": "sql-injection",
+      "name": "웹 요청 인자의 SQL 구문 주입 시도",
+      "condition": "data.url의 요청 인자에 SQL 질의 구조를 바꾸려는 구문이 있거나 rule.description에 SQL 구문 주입 정황이 명시되고, data.srcip와 data.count 등에서 반복 요청 근거를 확인한다. 단순 수업명 SQL·select는 제외한다.",
+      "evidence": "MITRE ATT&CK T1190은 외부 공개 앱 취약점 악용을 다루며, OWASP SQL Injection은 사용자 입력으로 SQL 질의의 동작을 바꾸는 공격을 설명한다.",
+      "reference": "https://community.owasp.org/attacks/SQL_Injection"
+    },
+    {
+      "id": "script-tag-injection",
+      "name": "웹 요청 인자의 스크립트 태그 주입 시도",
+      "condition": "data.url의 요청 인자에 실행을 유도하는 스크립트 태그가 있거나 rule.description에 스크립트 삽입 표식이 명시되고, data.srcip와 data.count 등에서 반복 요청 근거를 확인한다. 단순 수업명 script는 제외한다.",
+      "evidence": "MITRE ATT&CK T1190은 외부 공개 앱 악용의 맥락을 제공하며, OWASP XSS는 신뢰된 웹페이지에 악성 스크립트를 삽입하는 공격을 설명한다.",
+      "reference": "https://community.owasp.org/attacks/xss/"
+    },
+    {
+      "id": "path-traversal",
+      "name": "상위 디렉터리 이동 표기의 반복 시도",
+      "condition": "data.url의 파일·경로 인자에 ../ 또는 인코딩된 상위 경로 이동 표기가 반복되거나 rule.description에 반복된 경로 이탈 시도가 명시되며, data.srcip와 data.count 등으로 반복 정황을 확인한다. 단순 단어 up은 제외한다.",
+      "evidence": "MITRE ATT&CK T1190은 외부 공개 앱의 취약점 악용을 포함하며, OWASP Path Traversal은 ../ 등을 이용한 허용 경로 밖의 파일 접근 시도를 설명한다.",
+      "reference": "https://community.owasp.org/attacks/Path_Traversal"
+    }
+  ]
+}

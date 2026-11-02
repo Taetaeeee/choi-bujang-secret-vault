@@ -211,3 +211,13 @@ $data = $response.Content | ConvertFrom-Json
 - 한계: 현재 SDP 판정 요청 계약에는 신뢰할 수 있는 출발지 IP가 없으므로 실제 운영 ZTNA 엔진의 자동 IP 차단 연동은 구현·검증되지 않았습니다. `respond.mjs` 규칙은 `staged_only`이며 `src/decider.mjs`의 기존 규칙은 변경하지 않았습니다.
 - 재현: 저장소 루트에서 `npm.cmd run xdr:run -- brute-force` 실행 후 `xdr/brute-force/result.json`의 `counts`와 각 `decisions`를 확인합니다. 심판은 결과 파일만 믿지 않고 `decide.mjs`를 독립적으로 재실행합니다.
 - 관리: `xdr/alerts.log`, `xdr/*/deny-rules.json`은 실행 중 생성되는 자료이므로 Git 제출에서 제외했습니다. 실제 비밀값이나 개인정보는 제출하지 않습니다.
+
+## 보너스 xdr-02 저장점 (2026-11-02)
+
+- 대상: `xdr/fixtures/web-injection.json`의 수업용 Wazuh 형식 경보 26건. 원본 경보는 변경하지 않았습니다.
+- 구현: `xdr/web-injection/read-alerts.mjs` (5개 필드 추출), `patterns.json` (MITRE ATT&CK T1190 기반 SQL 주입·스크립트 주입·경로 이탈), 독립형 `decide.mjs`, 알림과 임시 거부 규칙을 준비하는 `respond.mjs`.
+- 로컬 확인: `npm.cmd run xdr:run -- web-injection`으로 `result.json`을 갱신해 `block` 8건, `alert` 9건, `record` 9건을 확인했습니다. 정상 이벤트 `wi-18`~`wi-26`의 오차단은 0건이었습니다.
+- 대응 시험: `respond.mjs` 실행에서 `staged_only` 거부 규칙 7개와 로그 17줄을 생성했습니다. 로컬 검사에서 공격 `deny`, 정상·만료 `continue`를 확인했으며 `continue`는 ZTNA의 최종 허용이 아닙니다.
+- 한계: 현재 ZTNA 판정 요청 계약에 신뢰된 출발지 IP가 없으므로 실제 운영 ZTNA 자동 차단 연동은 구현·검증하지 않았습니다. `src/decider.mjs`의 기존 규칙은 변경하지 않았습니다.
+- 재현: 저장소 루트에서 `npm.cmd run xdr:run -- web-injection` 실행 후 `xdr/web-injection/result.json`의 `counts`와 `decisions`를 확인합니다. 심판은 `decide.mjs`를 격리 환경에서 다시 실행합니다.
+- 관리: `xdr/alerts.log`, `xdr/*/deny-rules.json`은 생성 자료로 Git에 포함하지 않습니다. 실제 비밀값·개인정보는 제출하지 않습니다.
