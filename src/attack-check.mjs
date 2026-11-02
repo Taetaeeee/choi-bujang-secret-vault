@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -13,7 +13,7 @@ export async function runAttackChecks(config) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
   }
   if (typeof config.sampleMarker !== 'string' || !config.sampleMarker) throw new Error('가상 메모의 확인 표시를 넣어 주세요.');
-  if (config.step === 3 || config.step === 4 || config.step === 5) {
+  if (config.step === 3 || config.step === 4 || config.step === 5 || config.step === 6) {
     // 공개 경로에 실제 비인증 요청을 보냅니다. 토큰과 본문은 기록하지 않습니다.
     const options = { redirect: 'error', signal: AbortSignal.timeout(10000), credentials: 'omit' };
     const [staticResponse, apiResponse, deploymentResponse, pageResponse] = await Promise.all([
@@ -61,7 +61,20 @@ export async function runAttackChecks(config) {
         expected: '화면 응답 헤더 X-Content-Type-Options: nosniff',
         observed: `HTTP ${pageResponse.status}; nosniff ${pageResponse.headers.get('x-content-type-options') === 'nosniff'}` },
     ];
-    if (config.step === 5) {
+    if (config.step === 6) {
+      // 6단계 전용: 실제 운영 접근이 아니라 엔진 형식의 로컬 가상 요청 연습입니다.
+      const { decide, RULE_IDS } = await import('./decider.mjs');
+      const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
+      const { normal } = fixtureRequests();
+      const registered = await decide(normal);
+      const unregistered = await decide({ ...normal, deviceRegistered: false });
+      checks.push({
+        attackId: 'device_registration_local_fixture',
+        expected: '로컬 가상 요청에서 등록 기기 allow / approved, 미등록 기기 deny / device_not_registered',
+        observed: `등록 ${registered.decision} / ${registered.reasonCode}; 미등록 ${unregistered.decision} / ${unregistered.reasonCode}; 규칙 등록 ${RULE_IDS.includes('device_registered')}`,
+      });
+    }
+    if (config.step === 5 || config.step === 6) {
       // 공개 키로 원본 Data API에 직접 접근하는 실제 비인증 요청입니다.
       // 키나 API 응답 본문은 제출 결과와 로그에 포함하지 않습니다.
       const original = new URL(config.originalApiUrl);

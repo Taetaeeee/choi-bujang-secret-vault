@@ -1,6 +1,6 @@
 # BYTE BACK 방어전 시작 틀 R5
 
-이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **5**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
+이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **6**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
 ## 1단계 기록 — 학생이 했던 세 걸음
 
@@ -14,7 +14,7 @@
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
-`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 5입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
+`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 6입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
 
 로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. `src/attack-check.mjs`는 5단계의 공개 경로 및 Supabase 원본 API에 직접 비인증 요청을 보내 결과를 기록합니다. 이 학생 자기 점검은 공식 심판 판정이 아닙니다.
 
@@ -221,3 +221,55 @@ $data = $response.Content | ConvertFrom-Json
 - 한계: 현재 ZTNA 판정 요청 계약에 신뢰된 출발지 IP가 없으므로 실제 운영 ZTNA 자동 차단 연동은 구현·검증하지 않았습니다. `src/decider.mjs`의 기존 규칙은 변경하지 않았습니다.
 - 재현: 저장소 루트에서 `npm.cmd run xdr:run -- web-injection` 실행 후 `xdr/web-injection/result.json`의 `counts`와 `decisions`를 확인합니다. 심판은 `decide.mjs`를 격리 환경에서 다시 실행합니다.
 - 관리: `xdr/alerts.log`, `xdr/*/deny-rules.json`은 생성 자료로 Git에 포함하지 않습니다. 실제 비밀값·개인정보는 제출하지 않습니다.
+
+## 6단계 제작 3 — 등록 기기 판정기 로컬 확인 (2026-11-02)
+
+이번 제작에서는 **설치 프로그램이나 새 인증서·개인키 없이** 기존 `src/decider.mjs`의 기기 등록 판정을 로컬 가상 요청으로 점검합니다. 이 기록은 6단계 **최종 저장점이나 공식 심판 결과가 아닙니다.**
+
+### 확인 순서 (Windows PowerShell)
+
+1. 저장소 루트에서 작업합니다. `src/decider.mjs`에는 `RULE_IDS`의 `device_registered` 규칙이 구현돼 있어야 합니다.
+2. 다음 명령으로 제공된 로컬 시험을 실행합니다.
+
+   ```powershell
+   npm.cmd run decider:test
+   ```
+
+3. 다음 두 항목이 모두 `통과`인지 확인합니다.
+
+   ```text
+   통과 · 등록 기기의 정상 요청
+   통과 · 미등록 기기의 가상 요청
+   이 명령은 가상 요청으로 연습하며 심판 통과 증거가 아닙니다.
+   ```
+
+4. `decider:test`는 판정 및 이유 코드의 기대값을 **검사하지만 출력에는 '통과'만 표시**합니다. 실제 `decision`과 `reasonCode`를 눈으로 확인하려면 아래 명령을 별도로 실행합니다. 가상 요청만 사용합니다.
+
+   ```powershell
+   node --input-type=module -e "import { decide } from './src/decider.mjs'; import { fixtureRequests } from './scripts/fixture-7.mjs'; const { normal } = fixtureRequests(); for (const [name, input] of [['등록 기기', normal], ['미등록 기기', { ...normal, deviceRegistered: false }]]) { const result = await decide(input); console.log(name + ': ' + result.decision + ' / ' + result.reasonCode); }"
+   ```
+
+   예상 출력:
+
+   ```text
+   등록 기기: allow / approved
+   미등록 기기: deny / device_not_registered
+   ```
+
+5. 시험 결과가 예상과 다르면 `src/decider.mjs`의 `deviceRegistered` 조건, 요청 경로 및 응답의 다섯 항목을 점검합니다. **미등록 기기의 실제 공격 시험은 심판이 수행**하며, 로컬 가상 시험을 운영 환경 차단의 증거로 기록하지 않습니다.
+
+### 이번 제작의 검증 범위
+
+- `npm.cmd run decider:test`의 제공 가상 요청 2건은 로컬에서 통과했고, 별도 응답 확인에서 등록 기기는 `allow / approved`, 미등록 기기는 `deny / device_not_registered`를 확인했습니다.
+- `deviceRegistered` 값은 운영 엔진이 확인해 전달하는 필드입니다. `request.device`, `request.identity`, `request.role` 같은 계약 밖 필드는 사용하지 않습니다.
+- 이번 제작에서 프로그램 설치, 인증서·CA·서명 키 생성, 운영 심판 판정은 수행하지 않았습니다.
+
+
+## 6단계 저장점 (2026-11-02)
+
+- **구현:** `src/decider.mjs`에 `device_registered`를 추가하여 반 엔진이 확인한 `request.deviceRegistered`가 `true`인 자료실 읽기 요청만 `allow / approved`로 판단합니다. 미등록 또는 등록값 누락은 `deny / device_not_registered`로 거부합니다. 그 외 요청에는 기존 `starter.deny`를 유지합니다.
+- **로컬 확인:** `npm.cmd run decider:test`에서 등록·미등록 가상 요청 2건을 통과했고, 직접 출력에서 등록 `allow / approved`, 미등록 `deny / device_not_registered`를 확인했습니다. 미등록 기기의 실제 공격 시험과 공식 심판 결과는 아직 없습니다.
+- **설정:** `aleph.config.json`의 `step`을 6으로 변경하고 기존 저장소·배포 주소·인증 발급자·허용 경로·원본 API 주소를 유지합니다.
+- **제출 점검:** `src/attack-check.mjs`는 1~5단계의 실제 공개 경로 검사를 보존하며, 6단계에 대한 로컬 가상 기기 판정 결과를 추가로 기록합니다. 가상 기기 검사를 실제 운영 차단 증거로 사용하지 않습니다.
+- **한계:** 이 단계에서는 새로운 접속 프로그램, CA, 인증서, 서명 키 또는 기기 등록 UI를 만들지 않았습니다. 실제 엔진이 미등록 기기를 선차단하는지 여부는 로컬 판정기로 검증하지 않습니다.
+- **다시 실행:** 저장소 루트에서 `npm.cmd run decider:test`, `npm.cmd run build -- --local`, `npm.cmd run test:r5`, `npm.cmd run test:package`로 점검합니다. 커밋 후 배포가 최신 커밋에 도달했는지 `/aleph.json`을 확인하고 `npm.cmd run bundle`을 실행합니다. 제출 JSON과 비밀 설정값은 Git에 포함하지 않습니다.
