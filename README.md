@@ -202,12 +202,12 @@ $data = $response.Content | ConvertFrom-Json
 2. Vercel의 `/aleph.json`에서 `step: 5`와 커밋 일치를 확인하고, 공개 `/data.json` 404, 비로그인 `/api/notes`의 401 JSON, `/`의 `nosniff`, 원본 `originalApiUrl`에서 anon 공개 키 GET 401/403을 재점검합니다.
 3. `bundle-notes.json`의 `explanation`을 5단계의 확인된 내용으로만 갱신하고, `5단계 저장점` 커밋 및 Push 후 `npm.cmd run bundle`을 실행합니다. `bundle-notes.json`과 `artifacts/submission.json`은 Git에 커밋하지 않습니다. 공식 심판 점수는 별도입니다.
 
-## 蹂대꼫??xdr-01 ??μ젏 (2026-10-30)
+## 보너스 xdr-01 저장점 (2026-10-30)
 
-- ??? `xdr/fixtures/brute-force.json`???섏뾽??Wazuh ?뺤떇 寃쎈낫 28嫄? ?먮낯 寃쎈낫??蹂寃쏀븯吏 ?딆쓬.
-- 援ы쁽: `xdr/brute-force/read-alerts.mjs` (5媛??꾨뱶 異붿텧), `patterns.json` (MITRE ATT&CK T1110.001 / T1110.003), `decide.mjs` (?낅┰?곸씤 block / alert / record ?먮떒), `respond.mjs` (?뚮┝怨??꾩떆 嫄곕? 洹쒖튃 ?앹꽦).
-- 濡쒖뺄 ?뺤씤: `npm.cmd run xdr:run -- brute-force`濡?`result.json` ?앹꽦. `block` 10嫄? `alert` 9嫄? `record` 9嫄? ?뺤긽 ?대깽??`bf-20`~`bf-28` ?ㅼ감??0嫄?
-- ???紐⑤뱢: 利앷굅 寃쎈낫 ID? 留뚮즺 ?쒓컖???덈뒗 15遺??좏슚 洹쒖튃??以鍮꾪븯怨? 紐⑤뱢 寃?ъ뿉??怨듦꺽 `deny`, ?뺤긽쨌留뚮즺 `continue`瑜??뺤씤. `continue`??湲곗〈 ZTNA??理쒖쥌 ?덉슜???섎??섏? ?딆쓬.
-- ?쒓퀎: ?꾩옱 SDP ?먯젙 ?붿껌 怨꾩빟?먮뒗 ?좊ː?????덈뒗 異쒕컻吏 IP媛 ?놁쑝誘濡? ?ㅼ젣 ?댁쁺 ZTNA ?붿쭊???먮룞 IP 李⑤떒 ?곕룞? 援ы쁽쨌寃利앺븯吏 ?딆쓬. `respond.mjs`??洹쒖튃? `staged_only`?대ŉ `src/decider.mjs`??湲곗〈 洹쒖튃??蹂寃쏀븯吏 ?딆쓬.
-- ?ы쁽: ??μ냼 猷⑦듃?먯꽌 `npm.cmd run xdr:run -- brute-force` ?ㅽ뻾 ??`xdr/brute-force/result.json`??`counts`? 媛?`decisions` ?뺤씤. ?ы뙋? 寃곌낵 ?뚯씪留?誘우? ?딄퀬 `decide.mjs`瑜??낅┰?곸쑝濡??ъ떎?됲븿.
-- 愿由? `xdr/alerts.log`, `xdr/*/deny-rules.json`? ?ㅽ뻾 以??앹꽦?섎뒗 ?뚯씪?대?濡?Git ?쒖텧?먯꽌 ?쒖쇅?? ?ㅼ젣 鍮꾨?媛뮻룰퀎???먮즺???쒖텧?섏? ?딆쓬.
+- 대상: `xdr/fixtures/brute-force.json`의 수업용 Wazuh 형식 경보 28건. 원본 경보는 변경하지 않았습니다.
+- 구현: `xdr/brute-force/read-alerts.mjs` (5개 필드 추출), `patterns.json` (MITRE ATT&CK T1110.001 / T1110.003), `decide.mjs` (독립적인 block / alert / record 판단), `respond.mjs` (알림과 임시 거부 규칙 생성).
+- 로컬 확인: `npm.cmd run xdr:run -- brute-force`로 `result.json` 생성. `block` 10건, `alert` 9건, `record` 9건이고 정상 이벤트 `bf-20`~`bf-28`의 오차단은 0건이었습니다.
+- 대응 모듈: 근거 경보 ID와 만료 시각이 있는 15분 유효 규칙을 준비하고, 모듈 검사에서 공격 `deny`, 정상·만료 `continue`를 확인했습니다. `continue`는 기존 ZTNA의 최종 허용을 의미하지 않습니다.
+- 한계: 현재 SDP 판정 요청 계약에는 신뢰할 수 있는 출발지 IP가 없으므로 실제 운영 ZTNA 엔진의 자동 IP 차단 연동은 구현·검증되지 않았습니다. `respond.mjs` 규칙은 `staged_only`이며 `src/decider.mjs`의 기존 규칙은 변경하지 않았습니다.
+- 재현: 저장소 루트에서 `npm.cmd run xdr:run -- brute-force` 실행 후 `xdr/brute-force/result.json`의 `counts`와 각 `decisions`를 확인합니다. 심판은 결과 파일만 믿지 않고 `decide.mjs`를 독립적으로 재실행합니다.
+- 관리: `xdr/alerts.log`, `xdr/*/deny-rules.json`은 실행 중 생성되는 자료이므로 Git 제출에서 제외했습니다. 실제 비밀값이나 개인정보는 제출하지 않습니다.
