@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import config from '../aleph.config.json' with { type: 'json' };
 import { createLoginVerifier } from '../src/verify-login.mjs';
+import { personalNoteRequestResourceId } from '../src/resource-id.mjs';
+import { verifiedApiIdentity, ownsStoredNote, ownsAllStoredNotes } from '../src/api-resource-access.mjs';
 
 // 4단계 제작 2: 검증된 사용자 ID와 DB owner_id가 일치할 때만 접근합니다.
 // DB GRANT/RLS 정책 변경은 다음 제작 단계에서 진행합니다.
@@ -37,6 +39,10 @@ export default async function handler(request, response) {
   // Vercel rewrite: /api/notes/:id -> /api/notes?noteId=:id
   const rawId = request.query?.noteId;
   const hasId = rawId !== undefined;
+  // 서버가 고정한 자원 구역 ID를 요청별로 표시합니다. DB나 기존 주소는 바꾸지 않습니다.
+  // ID에 대한 인가·소유권 검사는 아래 기존 로직이 계속 수행합니다.
+  const resourceId = personalNoteRequestResourceId(rawId);
+  if (resourceId) response.setHeader('X-Resource-ID', resourceId);
   const methods = hasId ? ['GET', 'PUT', 'DELETE'] : ['GET', 'POST'];
   if (!methods.includes(request.method)) {
     response.setHeader('Allow', methods.join(', '));
@@ -58,7 +64,9 @@ export default async function handler(request, response) {
   } catch {
     return response.status(401).json({ error: 'UNAUTHORIZED' });
   }
-  if (!identity) return response.status(401).json({ error: 'UNAUTHORIZED' });
+  if (!verifiedApiIdentity(identity)) {
+    return response.status(401).json({ error: 'UNAUTHORIZED' });
+  }
 
   if (hasId && (typeof rawId !== 'string' || !UUID.test(rawId))) {
     return response.status(400).json({ error: 'INVALID_ID' });
@@ -71,10 +79,10 @@ export default async function handler(request, response) {
     if (!hasId && request.method === 'GET') {
       // 모든 목록 조회에서 서버가 검증한 소유자 ID로 제한합니다.
       const [owned, samples] = await Promise.all([
-        db.from('vault_user_notes').select('id,title,body')
+        db.from('vault_user_notes').select('id,title,body,owner_id')
           .eq('owner_id', identity.userId).order('created_at', { ascending: false }),
         // 제작 1에서 A의 owner_id를 지정한 기존 네 건. B에게는 반환하지 않습니다.
-        db.from('vault_notes').select('id,title,content')
+        db.from('vault_notes').select('id,title,content,owner_id')
           .eq('owner_id', identity.userId).in('id', [1, 2, 3, 4])
           .order('id', { ascending: true }),
       ]);
@@ -82,8 +90,14 @@ export default async function handler(request, response) {
           || !Array.isArray(samples.data)) {
         return response.status(502).json({ error: 'DATA_UNAVAILABLE' });
       }
+      // WHERE owner_id 필터와 별개로 실제 반환된 모든 행의 저장 소유자를 재확인합니다.
+      // 타인 자료가 섞인 응답은 한 건도 브라우저에 전달하지 않습니다.
+      if (!ownsAllStoredNotes(identity, owned.data)
+          || !ownsAllStoredNotes(identity, samples.data)) {
+        return response.status(403).json({ error: 'FORBIDDEN' });
+      }
       return response.status(200).json({
-        notes: owned.data,
+        notes: owned.data.map(({ id, title, body }) => ({ id, title, body })),
         sampleMarker: 'SAMPLE_NOTE_1',
         sampleNotes: samples.data.map(({ title, content }) => ({ title, content })),
       });
@@ -98,10 +112,17 @@ export default async function handler(request, response) {
         return response.status(400).json({ error: 'INVALID_ID' });
       }
       const { data, error } = await db.from('vault_user_notes')
-        .insert({ id, ...fields, owner_id: identity.userId }).select('id').single();
+        .insert({ id, ...fields, owner_id: identity.userId })
+        .select('id,owner_id').single();
       if (error) {
         if (error.code === '23505') return response.status(409).json({ error: 'NOTE_EXISTS' });
         return response.status(502).json({ error: 'DATA_UNAVAILABLE' });
+      }
+      // 신규 메모도 DB에 저장된 owner_id를 검증한 뒤 식별자만 반환합니다.
+      if (!data || typeof data.id !== 'string' || !UUID.test(data.id)
+          || data.id.toLowerCase() !== id.toLowerCase()
+          || !ownsStoredNote(identity, data)) {
+        return response.status(403).json({ error: 'FORBIDDEN' });
       }
       return response.status(201).json({ id: data.id });
     }
@@ -112,7 +133,7 @@ export default async function handler(request, response) {
         .eq('id', rawId).eq('owner_id', identity.userId).maybeSingle();
       if (error) return response.status(502).json({ error: 'DATA_UNAVAILABLE' });
       // 타인의 메모는 존재 여부도 알리지 않습니다.
-      if (!data || data.owner_id !== identity.userId) {
+      if (!ownsStoredNote(identity, data)) {
         return response.status(404).json({ error: 'NOT_FOUND' });
       }
       return response.status(200).json({ id: data.id, title: data.title, body: data.body });
@@ -125,7 +146,7 @@ export default async function handler(request, response) {
       const { data: before, error: readError } = await db.from('vault_user_notes')
         .select('owner_id').eq('id', rawId).maybeSingle();
       if (readError) return response.status(502).json({ error: 'DATA_UNAVAILABLE' });
-      if (!before || before.owner_id !== identity.userId) {
+      if (!ownsStoredNote(identity, before)) {
         return response.status(404).json({ error: 'NOT_FOUND' });
       }
       // WHERE owner_id 조건으로 이전 소유권을 재확인하고, title/body만 갱신해
@@ -134,7 +155,7 @@ export default async function handler(request, response) {
         .eq('id', rawId).eq('owner_id', identity.userId)
         .select('id,title,body,owner_id').maybeSingle();
       if (error) return response.status(502).json({ error: 'DATA_UNAVAILABLE' });
-      if (!data || data.owner_id !== identity.userId) {
+      if (!ownsStoredNote(identity, data)) {
         return response.status(404).json({ error: 'NOT_FOUND' });
       }
       return response.status(200).json({ id: data.id, title: data.title, body: data.body });
@@ -145,7 +166,7 @@ export default async function handler(request, response) {
       .eq('id', rawId).eq('owner_id', identity.userId)
       .select('id,owner_id').maybeSingle();
     if (error) return response.status(502).json({ error: 'DATA_UNAVAILABLE' });
-    if (!data || data.owner_id !== identity.userId) {
+    if (!ownsStoredNote(identity, data)) {
       return response.status(404).json({ error: 'NOT_FOUND' });
     }
     return response.status(200).json({ id: data.id });

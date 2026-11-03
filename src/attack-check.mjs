@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -13,7 +13,7 @@ export async function runAttackChecks(config) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
   }
   if (typeof config.sampleMarker !== 'string' || !config.sampleMarker) throw new Error('가상 메모의 확인 표시를 넣어 주세요.');
-  if (config.step === 3 || config.step === 4 || config.step === 5 || config.step === 6 || config.step === 7) {
+  if (config.step === 3 || config.step === 4 || config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8) {
     // 공개 경로에 실제 비인증 요청을 보냅니다. 토큰과 본문은 기록하지 않습니다.
     const options = { redirect: 'error', signal: AbortSignal.timeout(10000), credentials: 'omit' };
     const [staticResponse, apiResponse, deploymentResponse, pageResponse] = await Promise.all([
@@ -61,8 +61,8 @@ export async function runAttackChecks(config) {
         expected: '화면 응답 헤더 X-Content-Type-Options: nosniff',
         observed: `HTTP ${pageResponse.status}; nosniff ${pageResponse.headers.get('x-content-type-options') === 'nosniff'}` },
     ];
-    if (config.step === 6 || config.step === 7) {
-      // 6단계 전용: 실제 운영 접근이 아니라 엔진 형식의 로컬 가상 요청 연습입니다.
+    if (config.step === 6 || config.step === 7 || config.step === 8) {
+      // 6단계 이후: 실제 운영 접근이 아닌 엔진 형식의 로컬 가상 요청 연습입니다.
       const { decide, RULE_IDS } = await import('./decider.mjs');
       const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
       const { normal } = fixtureRequests();
@@ -74,8 +74,8 @@ export async function runAttackChecks(config) {
         observed: `등록 ${registered.decision} / ${registered.reasonCode}; 미등록 ${unregistered.decision} / ${unregistered.reasonCode}; 규칙 등록 ${RULE_IDS.includes('device_registered')}`,
       });
     }
-    if (config.step === 7) {
-      // 7단계 전용: 운영 로그인/실제 메모 차단이 아닌 로컬 가상 사건 판정입니다.
+    if (config.step === 7 || config.step === 8) {
+      // 7단계 이후: 운영 로그인/실제 메모 차단이 아닌 로컬 가상 사건 판정입니다.
       const { decide, RULE_IDS } = await import('./decider.mjs');
       const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
       const { normal, suspicious } = fixtureRequests();
@@ -99,7 +99,57 @@ export async function runAttackChecks(config) {
         observed: `위조 출처 ${forged.decision} / ${forged.reasonCode}; 운영 헤더 검증 미실행`,
       });
     }
-    if (config.step === 5 || config.step === 6 || config.step === 7) {
+    if (config.step === 8) {
+      // 8단계: 판정기 구역 정책과 서버 내부 권한 함수의 가상 검증만 기록합니다.
+      // 타 계정 로그인·운영 데이터 접근은 수행하지 않았으므로 성공으로 적지 않습니다.
+      const { decide, RULE_IDS } = await import('./decider.mjs');
+      const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
+      const { normal } = fixtureRequests();
+      const judge = async fields => (await decide({ ...normal, ...fields })).decision;
+      const note = await judge({});
+      const noteList = await judge({ path: '/notes', route: 'GET /notes' });
+      const notice = await judge({ service: 'notices', path: '/notices', route: 'GET /notices' });
+      const writes = await Promise.all(['POST', 'PUT', 'PATCH', 'DELETE'].map(method =>
+        judge({ service: 'notices', method, path: '/notices/demo', route: `${method} /notices/:id` })));
+      const instructor = await judge({ service: 'instructor_materials',
+        path: '/instructor-materials/demo', route: 'GET /instructor-materials/:id' });
+      const exportPath = await judge({ path: '/notes/export' });
+      const queryBypass = await judge({ queryLength: 8 });
+      checks.push({
+        attackId: 'zone_policy_local_fixture',
+        expected: '가상 단건 메모 allow, 목록 deny, 공지 GET allow, 공지 쓰기·강사 자료·기능경로·쿼리 우회 deny',
+        observed: `단건 ${note}; 목록 ${noteList}; 공지 ${notice}; 공지 쓰기 전체 거부 ${writes.every(x => x === 'deny')}; 강사 ${instructor}; export ${exportPath}; 쿼리 ${queryBypass}; 규칙 등록 ${RULE_IDS.includes('personal_note_read') && RULE_IDS.includes('class_notice_read')}`,
+      });
+
+      const { RESOURCE_ZONES, resourceIdFor } = await import('./resource-id.mjs');
+      const sampleId = 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa';
+      const noteId = resourceIdFor(RESOURCE_ZONES.PERSONAL_NOTE, sampleId);
+      const noticeId = resourceIdFor(RESOURCE_ZONES.INSTRUCTOR_NOTICE, 'notice-001');
+      checks.push({
+        attackId: 'resource_id_local_fixture',
+        expected: '가상 개인 메모/강사 공지 자원 ID가 구역별로 구별되며 임의 구역은 미허용',
+        observed: `메모 구역 ${noteId?.startsWith('personal-note:') === true}; 공지 구역 ${noticeId?.startsWith('instructor-notice:') === true}; 구역 구분 ${noteId !== noticeId}; 임의 구역 ${resourceIdFor('unknown', sampleId) === null}`,
+      });
+
+      const { verifiedApiIdentity, ownsStoredNote, ownsAllStoredNotes } = await import('./api-resource-access.mjs');
+      const a = { kind: 'student', userId: sampleId };
+      const b = { kind: 'student', userId: 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb' };
+      const owned = { owner_id: sampleId };
+      checks.push({
+        attackId: 'api_owner_local_fixture',
+        expected: '서버 권한 함수의 가상 본인 허용, 타인 거부, 혼합 목록 거부; 운영 A/B 직접 시험 미실행',
+        observed: `검증 신원 ${verifiedApiIdentity(a)}; 본인 ${ownsStoredNote(a, owned)}; 타인 ${ownsStoredNote(b, owned)}; 혼합 목록 ${ownsAllStoredNotes(a, [owned, { owner_id: b.userId }])}; 운영 A/B 미실행`,
+      });
+
+      // 원본 자료·토큰·메모 본문 없이 익명 단건 API의 HTTP 상태만 관측합니다.
+      const direct = await fetch(new URL('/api/notes/aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa', app), options);
+      checks.push({
+        attackId: 'anonymous_single_note_read',
+        expected: '비인증 GET /api/notes/:id 401; 로그인 A/B 간 소유권 실측은 별도',
+        observed: `HTTP ${direct.status}; 비인증 거부 ${direct.status === 401}; 실제 A/B 교차 접근 미실행`,
+      });
+    }
+    if (config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8) {
       // 공개 키로 원본 Data API에 직접 접근하는 실제 비인증 요청입니다.
       // 키나 API 응답 본문은 제출 결과와 로그에 포함하지 않습니다.
       const original = new URL(config.originalApiUrl);

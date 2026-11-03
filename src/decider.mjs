@@ -1,7 +1,10 @@
 // ALEPH SDP 엔진이 확인한 요청만 받는 학생 판정기 시작점입니다.
-// 6단계: 등록된 기기의 자료실 읽기만 허용합니다.
+// 8단계 제작 2: 엔진 검증 요청의 서비스·동작·정확한 경로로 자료 구역을 나눕니다.
 // 요청 본문의 userId, role, 기기 키, 토큰을 별도로 믿거나 저장하지 마세요.
-export const RULE_IDS = Object.freeze(['starter.deny', 'device_registered', 'step_up_required']);
+export const RULE_IDS = Object.freeze([
+  'starter.deny', 'device_registered', 'step_up_required',
+  'personal_note_read', 'class_notice_read',
+]);
 
 // 엔진이 전달한 접속 사건의 출처와 형식만 검사합니다.
 // `none`은 관측 자료가 없다는 뜻이며 정상 접속의 증거가 아닙니다.
@@ -44,6 +47,37 @@ function inspectAccessContext(request) {
   return 'invalid';
 }
 
+// 운영 엔진이 검증한 service/method/path/route만 사용합니다.
+// 판정기 계약에는 강사 role이나 Supabase 메모 소유자 ID가 없습니다.
+// 예시 fixture의 ID는 UUID가 아닐 수 있으므로 UUID 형식은 강제하지 않습니다.
+function isSingleItemPath(path, root) {
+  if (typeof path !== 'string' || !path.startsWith(`${root}/`)) return false;
+  const itemId = path.slice(root.length + 1);
+  return itemId.length > 0 && !/[/?#\\%]/u.test(itemId)
+    && itemId !== '.' && itemId !== '..'
+    // /notes/export 같은 기능 경로를 :id와 같은 깊이로 취급하지 않습니다.
+    && !['export', 'download', 'bulk', 'search'].includes(itemId.toLowerCase());
+}
+
+// 반 공지의 서비스명·경로는 이번 단계에서 채택한 정책용 이름입니다.
+// 현재 저장소에 해당 공지 API/강사 관리 경로가 구현됐다는 뜻은 아닙니다.
+function allowedReadZone(request) {
+  // 허용 경로에 쿼리로 추가 기능을 붙이지 않습니다.
+  if (request.method !== 'GET' || request.queryLength !== 0) return null;
+
+  if (request.service === 'notes'
+      && request.route === 'GET /notes/:id'
+      && isSingleItemPath(request.path, '/notes')) return 'personal_note_read';
+
+  if (request.service === 'notices'
+      && ((request.route === 'GET /notices' && request.path === '/notices')
+        || (request.route === 'GET /notices/:id'
+          && isSingleItemPath(request.path, '/notices')))) return 'class_notice_read';
+
+  // 강사 자료, 공지 쓰기, 메모 목록, 불명확한 서비스·경로는 모두 미허용입니다.
+  return null;
+}
+
 export async function decide(request) {
   if (request.deviceRegistered !== true) {
     return {
@@ -68,11 +102,9 @@ export async function decide(request) {
     };
   }
 
-  // 반 엔진이 확인한 서비스·HTTP 동작·정규화된 경로만 판단합니다.
-  const isNotesRead = request.service === 'notes'
-    && request.method === 'GET'
-    && (request.route === 'GET /notes' || request.route === 'GET /notes/:id');
-  if (isNotesRead) {
+  // 서비스/경로/동작이 모두 맞는 구역의 GET만 허용 후보입니다.
+  const readZone = allowedReadZone(request);
+  if (readZone === 'personal_note_read') {
     // 실습용 엔진 사건에서만 복합 위험을 판단합니다. 지역 하나는 판단 조건이 아닙니다.
     // 0~5시 + 낯선 네트워크 + 최근 5분 내 위험 사건 10회 이상인 경우입니다.
     // `risk_signal.count`는 가상 사건 횟수이며 실제 메모 열람 횟수는 아닙니다.
@@ -105,10 +137,23 @@ export async function decide(request) {
       requestId: request.requestId,
       decision: 'allow',
       reasonCode: 'approved',
-      ruleIds: ['device_registered'],
+      ruleIds: ['device_registered', 'personal_note_read'],
     };
   }
 
+  if (readZone === 'class_notice_read') {
+    return {
+      schema: 'aleph.decision.v1',
+      requestId: request.requestId,
+      decision: 'allow',
+      reasonCode: 'approved',
+      ruleIds: ['device_registered', 'class_notice_read'],
+    };
+  }
+
+  // 공지의 POST/PUT/PATCH/DELETE, 강사 자료, 메모 목록/전체 조회는 거부합니다.
+  // 강사 공지 수정은 이후 서버 관리 경로에서 신원을 검증해야 합니다.
+  // 메모 owner_id 비교 역시 제작 3의 실제 자료 API에서 확인합니다.
   // 이 제작에서 허용하지 않은 요청은 기존 시작 규칙으로 거부합니다.
   return {
     schema: 'aleph.decision.v1',

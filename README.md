@@ -1,6 +1,6 @@
 # BYTE BACK 방어전 시작 틀 R5
 
-이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **7**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
+이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **8**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
 ## 1단계 기록 — 학생이 했던 세 걸음
 
@@ -14,7 +14,7 @@
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
-`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 7입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
+`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 8입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
 
 로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. `src/attack-check.mjs`는 5단계의 공개 경로 및 Supabase 원본 API에 직접 비인증 요청을 보내 결과를 기록합니다. 이 학생 자기 점검은 공식 심판 판정이 아닙니다.
 
@@ -283,3 +283,13 @@ $data = $response.Content | ConvertFrom-Json
 - **제작 3 — 계약·로컬 검증:** `stepUp.verified`와 `stepUp.authAgeSeconds` 필드가 있으나, 실제 자료실에서 동일 계정 재로그인 및 자료 차단이 연동되는지는 확인되지 않았습니다. 학생의 로컬 가상 요청에서 `npm.cmd run decider:test` 4건 통과, `npm.cmd run fixture:7` 정상 `allow`·복합 이상 `step_up`, 인증 확인 전 `step_up`·60초 `allow`·301초 `step_up`을 확인했습니다. 이는 공식 심판 결과나 운영 자료 차단 실측이 아닙니다.
 - **설정 및 제출:** `aleph.config.json`의 `step`은 7이고 기존 저장소·Vercel 주소·인증 발급자·허용 경로·원본 API 주소·`judgeIssuer`는 유지합니다. `src/attack-check.mjs`는 공개 경로 실측 결과와 별도로 7단계 가상 판정 결과를 기록합니다. 새 단계의 Vercel 배포 확인과 공식 심판 결과는 아직 미확인입니다.
 - **재실행:** 저장소 루트에서 `npm.cmd run decider:test`, `npm.cmd run fixture:7`, `npm.cmd run test:r5`, `npm.cmd run test:package`, `npm.cmd run build -- --local`로 검사합니다. 저장점 커밋 후 `npm.cmd run bundle`을 실행하고 Git에 포함되지 않는 `artifacts/submission.json`의 예상·관측 결과를 확인합니다. 실제 결과와 미실행 검사는 구분하고 토큰·키·메모 본문은 제출하지 않습니다.
+
+
+## 8단계 저장점 (2026-11-03)
+
+- **제작 1 — 자원 ID 구분:** `src/resource-id.mjs`에서 개인 메모(`personal-note`)와 강사 공지(`instructor-notice`)의 자원 ID를 분리했습니다. 기존 `/api/notes`와 `/api/notes/:id` 주소, DB 메모 ID, 화면 메뉴와 응답 본문 형태는 유지합니다. `api/notes.js`에는 서버가 결정한 `X-Resource-ID` 헤더를 추가했습니다. 공지 데이터·API·메뉴는 새로 만들지 않았습니다.
+- **제작 2 — 구역별 판정:** `src/decider.mjs`는 엔진이 검증한 `service`·`method`·`path`·`route`를 사용합니다. 단건 메모 `GET /notes/:id`와 반 공지 `GET /notices`, `GET /notices/:id`만 허용 후보로 두고, 메모 목록/쓰기·공지 쓰기·강사 자료·알 수 없는 경로와 쿼리 기능 요청을 거부합니다. 메모 ID가 UUID인지 판정기에서 강제하지 않습니다. 등록 기기 확인 및 7단계 복합 이상 요청의 `step_up`은 유지합니다. 반 공지 경로는 현재 **정책용 가상 경로**이며 운영 공지 API는 없습니다.
+- **제작 3 — API 소유자 확인:** 기존 `api/notes.js`에서 서버 검증 사용자와 DB에서 읽은 `owner_id`를 재확인합니다. 목록에 타인 행이 섞이면 403, 타인 메모 단건/수정/삭제는 404를 반환합니다. 생성 직후 DB에 저장된 소유자도 비교하고, 요청 본문이나 메뉴의 `role`을 인가 근거로 사용하지 않습니다. 서버 측 강사 권한 저장소가 없어 강사 관리 API는 미구현입니다.
+- **정책 설정:** `aleph.config.json`은 `step: 8`입니다. `allowedRoutes`는 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`만 포함합니다. 기존 화면 호환을 위한 `/api/notes` 목록·쓰기 API는 유지하지만 판정기 허용 경로에서는 제외합니다. 현재 서버 API와 엔진 판정기의 **실제 연동 경로는 확인되지 않았습니다**.
+- **검증:** 사용자 PC에서 자원 ID 3건, 구역 판정 7건, API 소유권 단위 시험 3건, 기존 판정기 4건, 패키징 3건이 통과했습니다. 로컬 테스트는 심판이나 A/B 실제 계정 직접 API 요청의 증거가 아닙니다. 실제 A/B 계정 접근·공지 관리 권한 검증은 미실행으로 기록합니다.
+- **제출 점검:** `src/attack-check.mjs`는 비로그인 공개 경로 및 원본 Data API의 실제 HTTP 결과와 별도로 8단계 가상 구역/소유권 검사 결과를 기록합니다. `npm.cmd run decider:test`, `npm.cmd run fixture:7`, `node --test test/resource-id.test.mjs test/stage8-zones.test.mjs test/stage8-api-access.test.mjs`, `npm.cmd run test:r5`, `npm.cmd run test:package`, `npm.cmd run build -- --local`로 회귀 확인합니다. 저장점 커밋과 배포 확인 후 공개 키 환경변수를 현재 PowerShell 세션에 설정하여 `npm.cmd run bundle`을 실행합니다. 제출 JSON·토큰·키·본문은 Git에 넣지 않습니다.
