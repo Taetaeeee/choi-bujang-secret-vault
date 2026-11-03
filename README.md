@@ -1,6 +1,6 @@
 # BYTE BACK 방어전 시작 틀 R5
 
-이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **6**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
+이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **7**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
 ## 1단계 기록 — 학생이 했던 세 걸음
 
@@ -14,7 +14,7 @@
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
-`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 6입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
+`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 7입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
 
 로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. `src/attack-check.mjs`는 5단계의 공개 경로 및 Supabase 원본 API에 직접 비인증 요청을 보내 결과를 기록합니다. 이 학생 자기 점검은 공식 심판 판정이 아닙니다.
 
@@ -273,3 +273,13 @@ $data = $response.Content | ConvertFrom-Json
 - **제출 점검:** `src/attack-check.mjs`는 1~5단계의 실제 공개 경로 검사를 보존하며, 6단계에 대한 로컬 가상 기기 판정 결과를 추가로 기록합니다. 가상 기기 검사를 실제 운영 차단 증거로 사용하지 않습니다.
 - **한계:** 이 단계에서는 새로운 접속 프로그램, CA, 인증서, 서명 키 또는 기기 등록 UI를 만들지 않았습니다. 실제 엔진이 미등록 기기를 선차단하는지 여부는 로컬 판정기로 검증하지 않습니다.
 - **다시 실행:** 저장소 루트에서 `npm.cmd run decider:test`, `npm.cmd run build -- --local`, `npm.cmd run test:r5`, `npm.cmd run test:package`로 점검합니다. 커밋 후 배포가 최신 커밋에 도달했는지 `/aleph.json`을 확인하고 `npm.cmd run bundle`을 실행합니다. 제출 JSON과 비밀 설정값은 Git에 포함하지 않습니다.
+
+
+## 7단계 저장점 (2026-11-03)
+
+- **현재 기능:** 앞선 단계의 Supabase Auth 로그인, 본인 메모 CRUD·소유자 검사, 원본 Data API 직접 접근 제한 및 등록 기기 읽기 판정 규칙을 유지합니다.
+- **제작 1 — 입력 검사:** `docs/DECIDER_REQUEST.md`의 `signals`·`recentEvents` 계약만 사용합니다. `source: none`은 관측 정보 없음, `judge_fixture`는 가상 시험 신호로 구분합니다. 출처가 불명확하거나 형식이 잘못된 입력은 기존 거부 규칙으로 처리하며, 클라이언트 헤더를 위치·네트워크 증거로 승격하지 않습니다.
+- **제작 2 — 복합 사건:** 등록된 기기의 자료실 읽기 요청에서 가상 신호의 새벽 0~5시, 낯선 네트워크(`unusual`), 최근 300초 이내 `risk_signal` 10회 이상이 함께 나타나면 `step_up / step_up_required`를 반환합니다. 지역 하나만으로 차단하지 않습니다. 인증이 확인되고 경과 시간이 300초 이내이면 `allow / approved`입니다. 이 수치는 실습용 기준이며 `risk_signal.count`는 실제 메모 읽기 횟수를 뜻하지 않습니다.
+- **제작 3 — 계약·로컬 검증:** `stepUp.verified`와 `stepUp.authAgeSeconds` 필드가 있으나, 실제 자료실에서 동일 계정 재로그인 및 자료 차단이 연동되는지는 확인되지 않았습니다. 학생의 로컬 가상 요청에서 `npm.cmd run decider:test` 4건 통과, `npm.cmd run fixture:7` 정상 `allow`·복합 이상 `step_up`, 인증 확인 전 `step_up`·60초 `allow`·301초 `step_up`을 확인했습니다. 이는 공식 심판 결과나 운영 자료 차단 실측이 아닙니다.
+- **설정 및 제출:** `aleph.config.json`의 `step`은 7이고 기존 저장소·Vercel 주소·인증 발급자·허용 경로·원본 API 주소·`judgeIssuer`는 유지합니다. `src/attack-check.mjs`는 공개 경로 실측 결과와 별도로 7단계 가상 판정 결과를 기록합니다. 새 단계의 Vercel 배포 확인과 공식 심판 결과는 아직 미확인입니다.
+- **재실행:** 저장소 루트에서 `npm.cmd run decider:test`, `npm.cmd run fixture:7`, `npm.cmd run test:r5`, `npm.cmd run test:package`, `npm.cmd run build -- --local`로 검사합니다. 저장점 커밋 후 `npm.cmd run bundle`을 실행하고 Git에 포함되지 않는 `artifacts/submission.json`의 예상·관측 결과를 확인합니다. 실제 결과와 미실행 검사는 구분하고 토큰·키·메모 본문은 제출하지 않습니다.
