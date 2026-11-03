@@ -1,6 +1,6 @@
 # BYTE BACK 방어전 시작 틀 R5
 
-이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **8**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
+이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **9**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
 ## 1단계 기록 — 학생이 했던 세 걸음
 
@@ -14,7 +14,7 @@
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
-`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 8입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
+`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 9입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
 
 로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. `src/attack-check.mjs`는 5단계의 공개 경로 및 Supabase 원본 API에 직접 비인증 요청을 보내 결과를 기록합니다. 이 학생 자기 점검은 공식 심판 판정이 아닙니다.
 
@@ -293,3 +293,14 @@ $data = $response.Content | ConvertFrom-Json
 - **정책 설정:** `aleph.config.json`은 `step: 8`입니다. `allowedRoutes`는 `GET /api/notes/:id`, `GET /api/notices`, `GET /api/notices/:id`만 포함합니다. 기존 화면 호환을 위한 `/api/notes` 목록·쓰기 API는 유지하지만 판정기 허용 경로에서는 제외합니다. 현재 서버 API와 엔진 판정기의 **실제 연동 경로는 확인되지 않았습니다**.
 - **검증:** 사용자 PC에서 자원 ID 3건, 구역 판정 7건, API 소유권 단위 시험 3건, 기존 판정기 4건, 패키징 3건이 통과했습니다. 로컬 테스트는 심판이나 A/B 실제 계정 직접 API 요청의 증거가 아닙니다. 실제 A/B 계정 접근·공지 관리 권한 검증은 미실행으로 기록합니다.
 - **제출 점검:** `src/attack-check.mjs`는 비로그인 공개 경로 및 원본 Data API의 실제 HTTP 결과와 별도로 8단계 가상 구역/소유권 검사 결과를 기록합니다. `npm.cmd run decider:test`, `npm.cmd run fixture:7`, `node --test test/resource-id.test.mjs test/stage8-zones.test.mjs test/stage8-api-access.test.mjs`, `npm.cmd run test:r5`, `npm.cmd run test:package`, `npm.cmd run build -- --local`로 회귀 확인합니다. 저장점 커밋과 배포 확인 후 공개 키 환경변수를 현재 PowerShell 세션에 설정하여 `npm.cmd run bundle`을 실행합니다. 제출 JSON·토큰·키·본문은 Git에 넣지 않습니다.
+
+
+## 9단계 저장점 (2026-11-03)
+
+- **기존 기능 보존:** Supabase Auth 로그인·본인 메모 CRUD·소유권 재검사, 6~8단계 판정기의 등록 기기·추가 인증·자료 구역 규칙, XDR 실습을 유지합니다. `src/decider.mjs`, 메모 API, 기기 권한, DB 자료는 이번 단계에서 수정하지 않았습니다.
+- **제작 1 — 탐지 사건 입력:** `docs/DETECT_EVENTS.md`에 정의된 `at`·`method`·`identity.sub`만 읽고 시각을 숫자로 변환합니다. 불완전한 사건은 원본 내용을 출력하지 않는 고정 오류로 처리합니다. 기기·IP·지역·토큰·메모 본문과 실명은 탐지 근거에 사용하지 않습니다.
+- **제작 2 — `burst_read`:** 가명 사용자별 GET 사건의 `at`를 정렬하고 연속된 10분(양 끝 포함) 구간의 조회가 **120건을 초과**하면 탐지합니다. 정확히 120건, 다른 사용자끼리 합산한 요청, GET이 아닌 요청, 10분 밖에 분산된 요청은 회수 제안 대상이 아닙니다.
+- **제작 3 — 반환 형식:** 정상은 `{ action: 'observe' }` 한 키만, 폭주는 `{ action: 'propose_revocation', reasonCode: 'burst_read', subject: sub }` 세 키만 반환합니다. 탐지 결과는 접속 **회수 제안**이지 실제 세션·기기 권한 회수는 아닙니다.
+- **설정 및 범위:** `aleph.config.json`의 `step`은 **9**이고 저장소·Vercel 배포 주소, Supabase Auth 설정, `allowedRoutes`, `originalApiUrl`, `judgeIssuer`는 기존 값을 유지합니다. 운영 엔진의 사건 전달·회수 집행 경로는 이번 단계에서 구현하거나 검증하지 않았습니다.
+- **로컬 검증:** 사용자 PC에서 제작 1~3 단위 시험 **13/13**, `npm.cmd run detect:test` **6/6**, 기존 `npm.cmd run decider:test` **4/4** 통과. 가상 사건 결과이며 실제 운영 접속 회수나 공식 심판 결과가 아닙니다.
+- **재검증·제출:** `node --test test/stage9-input.test.mjs test/stage9-burst.test.mjs test/stage9-output.test.mjs`, `npm.cmd run detect:test`, `npm.cmd run decider:test`, `npm.cmd run test:r5`, `npm.cmd run test:package`, `npm.cmd run build -- --local`을 다시 실행합니다. `src/attack-check.mjs`는 기존의 비인증 실제 HTTP 점검과 6~8단계 가상 검사를 보존하고 9단계 가상 탐지 기록을 추가합니다. 저장점 커밋·실제 배포 단계/커밋 확인 후 `npm.cmd run bundle`을 실행합니다. 제출 JSON·공개 키·비밀값·가상 메모 본문은 Git에 포함하지 않습니다.
