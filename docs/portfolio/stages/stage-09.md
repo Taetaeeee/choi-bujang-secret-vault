@@ -1,6 +1,6 @@
 # 9단계 | 도플갱어를 찾고 권한을 거둡니다
 
-**기록 출처:** 제작 1~3 공식 요청과 사용자 PowerShell 실행 결과, [9단계 저장점 커밋](https://github.com/Taetaeeee/choi-bujang-secret-vault/commit/fb0c750daf43aa7d8537783de879f76290f93ab2)  
+**기록 출처:** 제작 1~3 공식 요청과 사용자 PowerShell 실행 결과, [9단계 저장점 커밋](https://github.com/Taetaeeee/choi-bujang-secret-vault/commit/fb0c750daf43aa7d8537783de879f76290f93ab2)
 **기록 상태:** 제작 1~3 로컬 검증·제출 완료 · 2026-11-03 공식 심판 **100/100점** (사용자 제공 결과)
 
 ## 과제와 목표
