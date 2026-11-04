@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101a28">
+  <title>BYTE BACK | 탈환 작전실</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; min-height: 100vh; background: #101a28; color: #edf4ff; }
+    main { max-width: 920px; margin: auto; padding: 32px 20px 80px; }
+    a { color: #9ce5ee; }
+    h1 { margin-bottom: 8px; font-size: clamp(30px, 5vw, 44px); }
+    p { color: #c5d6e9; line-height: 1.65; }
+    button { padding: 11px 16px; border: 0; border-radius: 8px; background: #8ad8df; color: #101a28; font: inherit; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .65; cursor: progress; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 24px 0; }
+    .card, .record { padding: 19px; border: 1px solid #526a80; border-radius: 14px; background: #1a2a3d; }
+    .card h2 { margin: 0 0 10px; font-size: 19px; }
+    .value { font-size: 25px; font-weight: 800; color: #e6efff; }
+    .meta { color: #b9c9dc; font-size: 13px; overflow-wrap: anywhere; }
+    .source { margin-top: 12px; color: #93d4dd; font-size: 12px; overflow-wrap: anywhere; }
+    .status { padding: 10px 14px; border: 1px solid #b39b64; border-radius: 9px; background: #382f22; color: #ffe5af; }
+    .good { border-color: #438777; background: #1d4436; color: #b6f0ce; }
+    pre { margin: 0; padding: 16px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 8px; background: #111e2f; color: #d6e2f3; font-size: 12px; line-height: 1.65; }
+  </style>
+</head>
+<body>
+  <main>
+    <a href="/">← 내 자료실</a>
+    <h1>탈환 작전실</h1>
+    <p>승인된 기기에서 서버 응답을 읽어 현황을 보여줍니다. 설정된 규칙은 운영 공격 차단 결과가 아니며, 확인할 기록이 없는 항목을 성공이나 0건으로 표시하지 않습니다.</p>
+    <p id="operation-status" class="status" role="status" aria-live="polite">서버 요약 응답 확인 전</p>
+    <button id="refresh" type="button">서버에서 새로 확인</button>
+    <p id="observed-at" class="meta">관측 시각: 확인 전</p>
+    <div class="grid">
+      <section class="card" aria-labelledby="rule-heading">
+        <h2 id="rule-heading">판정기 규칙</h2>
+        <div id="rules-count" class="value">—</div>
+        <p id="rules-note" class="meta">서버 확인 전</p>
+        <div class="source">출처: 학생 판정기 RULE_IDS</div>
+      </section>
+      <section class="card" aria-labelledby="detection-heading">
+        <h2 id="detection-heading">탐지 사건</h2>
+        <div id="detection-count" class="value">—</div>
+        <p id="detection-note" class="meta">운영 사건 기록 확인 전</p>
+        <div class="source">출처: 학생 탐지기 / 운영 사건 연동 여부</div>
+      </section>
+      <section class="card" aria-labelledby="revocation-heading">
+        <h2 id="revocation-heading">회수 상태</h2>
+        <div id="revocation-count" class="value">—</div>
+        <p id="revocation-note" class="meta">운영 회수 기록 확인 전</p>
+        <div class="source">출처: 탐지 제안과 엔진 집행을 구분</div>
+      </section>
+      <section class="card" aria-labelledby="recovery-heading">
+        <h2 id="recovery-heading">복구 버전</h2>
+        <div id="recovery-version" class="value">—</div>
+        <p id="recovery-note" class="meta">운영 복구 버전 확인 전</p>
+        <div class="source">출처: 10단계 README 기록(과거 로컬 사본)</div>
+      </section>
+    </div>
+    <section class="record" aria-labelledby="record-heading">
+      <h2 id="record-heading">서버 기록 (개인정보 제외)</h2>
+      <p>아래 값은 위 카드와 동일한 <code>GET /api/operations</code> 응답입니다. 신원, 메모 본문, 토큰, 쿠키 및 서버 비밀값은 기록하지 않습니다. <code>null</code>은 0건이 아닌 미확인입니다.</p>
+      <pre id="server-record">아직 서버 응답을 받지 않았습니다.</pre>
+    </section>
+  </main>
+  <script type="module">
+    const pick = id => document.getElementById(id);
+    const displayCount = value => Number.isSafeInteger(value) && value >= 0 ? `${value}건` : '—';
+    const refresh = pick('refresh');
+    let sequence = 0;
+
+    async function loadOperations() {
+      const current = ++sequence;
+      refresh.disabled = true;
+      pick('operation-status').textContent = '서버에서 기록을 확인하고 있습니다.';
+      try {
+        const response = await fetch('/api/operations', { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+        let data;
+        try { data = await response.json(); } catch { throw new Error(`서버 응답 형식 오류 (HTTP ${response.status})`); }
+        if (!response.ok) throw new Error(`접근 또는 조회 거부 (HTTP ${response.status} / ${data.error ?? 'UNKNOWN'})`);
+        if (data.schema !== 'aleph.operations.summary.v1' || !data.record
+            || !Array.isArray(data.record.decision?.registeredRuleIds)
+            || data.record.decision.registeredRuleCount !== data.record.decision.registeredRuleIds.length) {
+          throw new Error('서버 요약 기록의 형식 또는 규칙 수가 일치하지 않습니다.');
+        }
+        if (current !== sequence) return;
+        const { record } = data;
+        pick('rules-count').textContent = `${record.decision.registeredRuleCount}개 등록`;
+        pick('rules-note').textContent = `규칙: ${record.decision.registeredRuleIds.join(', ')} / 운영 판정 결과: 미확인`;
+        pick('detection-count').textContent = displayCount(record.detection.operationalEventCount);
+        pick('detection-note').textContent = record.detection.operationalEvents === 'not_observed'
+          ? '운영 사건 피드 미연결 · 실행 여부 확인 불가' : '운영 사건 결과 확인 필요';
+        pick('revocation-count').textContent = displayCount(record.revocation.completedCount);
+        pick('revocation-note').textContent = record.revocation.operationalExecution === 'not_observed'
+          ? '실제 회수 집행 미확인 (제안과 별개)' : '회수 실행 결과 확인 필요';
+        pick('recovery-version').textContent = record.recovery.liveVerifiedVersion ?? '—';
+        pick('recovery-note').textContent = `운영 복구 미확인 · 과거 로컬 사본 기준: ${record.recovery.historicalBaselineCommit.slice(0, 7)}`;
+        pick('observed-at').textContent = `서버 관측 시각: ${data.observedAt}`;
+        pick('operation-status').textContent = '기기 승인 서버 조회 완료 · 이 화면은 작전 성공 판정이 아닙니다.';
+        pick('operation-status').classList.add('good');
+        pick('server-record').textContent = JSON.stringify({
+          schema: data.schema, observedAt: data.observedAt, redaction: data.redaction, record,
+        }, null, 2);
+      } catch (error) {
+        if (current !== sequence) return;
+        pick('operation-status').textContent = error.message;
+        pick('operation-status').classList.remove('good');
+        for (const id of ['rules-count', 'detection-count', 'revocation-count', 'recovery-version']) pick(id).textContent = '—';
+        pick('rules-note').textContent = '확인 불가';
+        pick('detection-note').textContent = '미확인';
+        pick('revocation-note').textContent = '미확인';
+        pick('recovery-note').textContent = '미확인';
+        pick('observed-at').textContent = '서버 관측 시각: 확인 불가';
+        pick('server-record').textContent = '보호된 서버 요약을 읽지 못했습니다. 승인된 브라우저에서 로그인·기기 승인 상태를 확인해 주세요.';
+      } finally {
+        if (current === sequence) refresh.disabled = false;
+      }
+    }
+    refresh.addEventListener('click', loadOperations);
+    loadOperations();
+  </script>
+</body>
+</html>
