@@ -436,3 +436,39 @@ node --test test/stage10-policy.test.mjs test/stage10-restore.test.mjs test/stag
 - **승인 구현 한계:** 기기 식별은 서버 발급 불투명 HttpOnly 쿠키에 바인딩된 승인 기록으로, 하드웨어 기기 증명이 아닙니다. PWA 설치만으로 기기가 승인되거나 브라우저가 스스로 상태를 `approved`로 변경할 수 없습니다. 이 승인 기록과 외부 ZTNA 엔진 `deviceRegistered`의 운영 연동은 **미실측**입니다.
 - **기존 단계 보존:** `src/decider.mjs`의 18개 요청 필드 계약과 `RULE_IDS`, 9단계 탐지, 10단계 비공개 백업·감사 이력을 유지합니다. 기존 백업을 재생성하거나 `restore --confirm`을 다시 실행하지 않습니다. 10단계 공식 심판은 커밋 `7349244`로 기본 조건 5개·완결성 가점 3개, **100/100점**을 받았습니다(사용자 제공 결과).
 - **설정 및 재실행:** `aleph.config.json`은 `step: 11`로 올리고 `judgeIssuer`, `identityProvider`, 허용 경로 3개, `originalApiUrl`, `restoreRoute`를 보존합니다. `node --test test/stage11-device.test.mjs test/stage11-pwa.test.mjs test/stage11-savepoint.test.mjs test/stage10-savepoint-check.test.mjs` 및 `npm.cmd run decider:test`, `npm.cmd run fixture:7`, `npm.cmd run detect:test`, `npm.cmd run test:r5`, `npm.cmd run test:package`, `npm.cmd run build -- --local`로 재검증합니다. 새 Clone 설치와 Vercel 배포 단계·커밋 확인 후 `npm.cmd run bundle`로 제출 묶음을 생성합니다. 진행 전 아직 실행하지 않은 검사는 통과로 기록하지 않습니다.
+
+## 11단계 포트폴리오 기록 — 설치형 접속 앱과 승인 기기 접근 제어 (2026-11-04)
+
+**공식 평가: 100/100점.** 심판이 **조건 6개 모두 충족, 완결성 가점 3개 획득**을 확인했습니다. 평가 기준 커밋은 [`885cb7b8e7c4`](https://github.com/Taetaeeee/choi-bujang-secret-vault/commit/885cb7b8e7c4)입니다. 이 기록은 사용자에게 반환된 공식 판정과 로컬·운영 검증을 구분합니다.
+
+### 문제와 목표
+
+기존 자료실에는 로그인 기능이 있었지만, **로그인한 계정이 어느 기기에서 접속하는지 별도 승인하는 흐름**이 필요했습니다. 기존 메모 화면·사용자별 소유권 검사·1~10단계 정책을 유지하면서, 설치 가능한 PWA 접속 앱과 서버 승인 절차를 더하는 것이 목표였습니다.
+
+### 설계 판단 및 구현
+
+- **설치와 권한을 분리:** `public/manifest.webmanifest`, 192·512px 아이콘과 오프라인 안내를 제공했습니다. 앱 설치 여부 자체는 승인 근거로 쓰지 않고, 개인 메모는 오프라인 캐시하지 않습니다.
+- **승인 권한을 서버에 유지:** `POST /api/device`는 승인 요청을 Supabase `vault_device_approvals` 테이블에 `pending`으로 저장합니다. 운영자는 SQL Editor에서 승인 요청 번호와 소유자를 확인한 한 건만 `approved`로 바꿉니다. 브라우저에서 직접 승인할 수 있는 공개 API는 두지 않았습니다.
+- **API에서 접근 차단:** `/api/notes`는 메모 조회·추가·수정·삭제 전에 서버에서 인증 신원과 기기 승인 상태를 확인합니다. 승인되지 않은 요청을 차단하면서 기존 자료 소유권 검사도 유지했습니다.
+- **토큰 취급 개선:** 암호화한 `Secure`·`HttpOnly`·`SameSite=Strict` 세션 쿠키를 사용하고, 서버 발급 기기 식별자의 SHA-256 지문만 DB에 보관하도록 했습니다. Supabase 액세스·갱신 토큰을 브라우저 `localStorage`나 `sessionStorage`에 보관하지 않습니다.
+- **이전 단계 보존:** `src/decider.mjs`의 18개 요청 필드 계약 및 `RULE_IDS`, `allowedRoutes`, 9단계 탐지 규칙, 10단계 로컬 비공개 정책 사본과 감사 기록을 유지했습니다.
+
+### 직접 확인한 결과
+
+| 구분 | 검증 결과 |
+|---|---|
+| 운영 환경 — 승인 전 | testA 기기 승인 요청 `pending` 확인. `GET /api/notes` → **HTTP 403 / `DEVICE_NOT_APPROVED`** |
+| 운영 환경 — 승인 후 | Supabase `approved` 및 앱 서버 승인 상태 확인. 같은 브라우저 `GET /api/notes` → **HTTP 200**, 기존 메모와 가상 자료 표시 |
+| 11단계·기존 정책 단위 검사 | 사용자 PC에서 관련 테스트 **27/27 통과**, 10단계 정책 사본 SHA-256·복원 가상 요청·가상 메모 보존 검증 통과 |
+| 기존 기능 회귀 | `decider:test` **4/4**, `fixture:7` 정상 `allow`·복합 이상 `step_up`, `detect:test` **6/6**, `test:r5` **2/2**, `test:package` **3/3**, 로컬 빌드 성공 |
+| 설치 및 배포 | 새 Clone에서 `npm install` 성공(취약점 보고 0건), Vercel `step: 11` 및 커밋 일치 확인 |
+| 제출 묶음 | `npm run bundle` 성공. **단계 11 / 변경 파일 6개 / 규칙 5개 / 직접 점검 20개** |
+| 공식 심판 | **조건 6개·완결성 가점 3개 모두 확인, 100/100점** (사용자가 전달한 공식 판정) |
+
+### 성과와 검증 한계
+
+기기 설치나 브라우저의 승인 표시를 권한 근거로 삼지 않고 **서버의 승인 기록을 실제 자료 API 접근 조건과 연결**했습니다. 운영 배포에서 동일한 시험 계정·브라우저의 승인 전 **403 → 승인 후 200** 전환을 확인했고, 기존 화면이 유지되는 것도 검증했습니다.
+
+다만 서버 발급 쿠키에 기반한 기기 식별은 **하드웨어 수준 기기 증명이나 쿠키 복제 방지의 증거가 아닙니다**. 다른 기기·testB 교차 접근, 운영 메모 CRUD 전체, 외부 ZTNA 엔진과 실제 기기 승인 상태의 연동은 **직접 실측하지 않았습니다**. 로컬 테스트 및 공식 100점 판정과 별도로 구분해야 합니다.
+
+**관련 근거:** [평가 커밋](https://github.com/Taetaeeee/choi-bujang-secret-vault/commit/885cb7b8e7c4) · [배포 앱](https://choi-bujang-secret-vault-alpha-drab.vercel.app/) · `docs/STAGE11_DEVICE_APPROVAL.md` · `test/stage11-device.test.mjs` · `test/stage11-pwa.test.mjs` · `test/stage11-savepoint.test.mjs`. 실제 메모 본문·토큰·비밀키·로컬 제출 JSON은 Git에 포함하지 않았습니다.
