@@ -1,6 +1,6 @@
 # BYTE BACK 방어전 시작 틀 R5
 
-이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **9**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
+이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **10**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
 ## 1단계 기록 — 학생이 했던 세 걸음
 
@@ -14,7 +14,7 @@
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
-`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 9입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
+`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 10입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
 
 로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. `src/attack-check.mjs`는 5단계의 공개 경로 및 Supabase 원본 API에 직접 비인증 요청을 보내 결과를 기록합니다. 이 학생 자기 점검은 공식 심판 판정이 아닙니다.
 
@@ -304,3 +304,115 @@ $data = $response.Content | ConvertFrom-Json
 - **설정 및 범위:** `aleph.config.json`의 `step`은 **9**이고 저장소·Vercel 배포 주소, Supabase Auth 설정, `allowedRoutes`, `originalApiUrl`, `judgeIssuer`는 기존 값을 유지합니다. 운영 엔진의 사건 전달·회수 집행 경로는 이번 단계에서 구현하거나 검증하지 않았습니다.
 - **로컬 검증:** 사용자 PC에서 제작 1~3 단위 시험 **13/13**, `npm.cmd run detect:test` **6/6**, 기존 `npm.cmd run decider:test` **4/4** 통과. 가상 사건 결과이며 실제 운영 접속 회수나 공식 심판 결과가 아닙니다.
 - **재검증·제출:** `node --test test/stage9-input.test.mjs test/stage9-burst.test.mjs test/stage9-output.test.mjs`, `npm.cmd run detect:test`, `npm.cmd run decider:test`, `npm.cmd run test:r5`, `npm.cmd run test:package`, `npm.cmd run build -- --local`을 다시 실행합니다. `src/attack-check.mjs`는 기존의 비인증 실제 HTTP 점검과 6~8단계 가상 검사를 보존하고 9단계 가상 탐지 기록을 추가합니다. 저장점 커밋·실제 배포 단계/커밋 확인 후 `npm.cmd run bundle`을 실행합니다. 제출 JSON·공개 키·비밀값·가상 메모 본문은 Git에 포함하지 않습니다.
+
+## 10단계 제작 3 — B 계정 가상 메모 한 건 복원 연습 (2026-11-04)
+
+- **서비스·POST 경로:** `notes` · **`POST /api/restore`** (`api/restore.js`). 요청 본문은 `{ "id": "bbbbbbbb-2222-4222-8222-000000000010" }` 한 필드만 허용하며, 인증된 시험 계정 B의 소유권을 확인합니다. 판정기의 `allowedRoutes`에는 추가하지 않았으며 이 경로가 일반 메모 읽기 권한을 확장하지 않습니다.
+- **복원 대상 ID:** **`bbbbbbbb-2222-4222-8222-000000000010`**. 소유자는 **시험용 B 가상 UUID** `bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb`입니다. 실제 Supabase B 계정 ID가 아니며, 실제 사용자 토큰·본문을 여기에 기록하지 않습니다.
+- **비공개 백업:** 로컬 실행 시 `artifacts/stage10/private/b-note.json` 및 별도 SHA-256 파일을 생성합니다. 해당 폴더는 Git에서 제외되며 사본의 메모 내용은 실행 시 임의로 생성한 **가상 데이터**입니다. `src/decider.mjs`, `aleph.config.json`, 운영 DB와 다른 메모를 수정하지 않습니다.
+- **복원 방식:** 안전 정책 백업 해시와 비공개 가상 메모 사본 해시를 확인하고, 요청의 ID·검증 신원 B·저장된 소유자·본문 SHA-256을 비교한 뒤 `artifacts/stage10/drill/virtual-notes.json`의 **선택된 한 건만** 복원합니다. 다른 A/B 가상 메모와 기존 `artifacts/stage10/audit.jsonl`은 보존하고 복원 사건만 뒤에 추가합니다. 임의 owner_id·role·본문이 포함된 요청은 받지 않습니다.
+- **로컬 실행:** 먼저 10단계 제작 1의 `backup`, 제작 2의 `restore --confirm`을 마친 뒤 `node scripts/stage10-note.mjs prepare` → `plan` → `post` → `verify`를 실행합니다. `post`는 `127.0.0.1`의 로컬 POST 핸들러로 **가상 B 신원**만을 시험하며 실제 Supabase DB에 쓰지 않습니다. `node --test test/stage10-note-restore.test.mjs`로 A 거부, 잘못된 ID·소유자·해시 거부와 다른 메모·감사 이력 보존을 확인합니다.
+- **한계:** Vercel에는 Git에서 제외한 비공개 로컬 백업·시험 데이터가 배포되지 않으므로 공개 POST 경로는 복구 가능한 사본이 없으면 **503으로 중단**합니다. 이 단계는 운영 데이터나 실제 B 계정의 복원을 증명하지 않습니다. 현재 Supabase RLS/GRANT 정책 역시 README의 과거 기록만 보존했으며 운영 DB 실측 백업이 아닙니다.
+
+## 10단계 제작 4 — 복원 뒤 1~9단계 정상·금지 요청 재시험 순서 (2026-11-04)
+
+**목적:** 검증된 사본으로 복원한 정책과 시험 B 메모가 유지되는지 먼저 확인하고, 1~9단계에서 허용한 요청과 거부한 요청이 그대로 판정되는지 **아래 순서대로 다시 실행**합니다. 이 기록은 실행 절차입니다. **2026-11-04 사용자 PC에서 로컬 재실행을 확인**했으며, 이전 단계의 과거 통과 이력을 이번 시험 결과로 대신하지 않습니다. 실제 운영 환경 수동 검사는 미실행입니다.
+
+**재실행 전 상태:** 제작 1에서 복원 기준 커밋 `e6334b2`의 정책 사본을 SHA-256으로 검증했고, 제작 2에서 시험 정책 한 줄을 되돌렸습니다. 제작 3에서는 `notes` · `POST /api/restore`로 시험 B의 가상 메모 `bbbbbbbb-2222-4222-8222-000000000010` 한 건을 로컬에서 복원했습니다(사용자 제공 실행 결과). 백업·감사 자료는 Git 제외 경로 `artifacts/stage10/`에 보존합니다. **이미 복원했으므로 `backup`, `simulate`, `prepare`, `post`, `restore --confirm`을 재실행하지 않습니다.** 새 변조·백업 생성은 별도 연습에서만 진행합니다.
+
+### 0. 복구 상태와 보존 범위 먼저 검증 — 로컬 검증 통과
+
+```powershell
+cd C:\Users\User\Projects\choi-bujang-secret-vault
+git status --short
+git diff -- src/decider.mjs aleph.config.json api/notes.js
+node scripts/stage10-policy.mjs verify
+node scripts/stage10-restore.mjs retest
+node scripts/stage10-note.mjs verify
+```
+
+- **정상 기대:** 검증 사본의 SHA-256 일치, 시험 정책 원상복원, A의 정상 요청 허용, B의 A 메모 소유권 검사 거부, 미등록 기기·다른 서비스 거부, 복원된 B 메모의 ID·소유자·내용 해시 일치 및 다른 가상 메모 2건 유지.
+- **확인 범위:** `git status --short`에는 10단계 미커밋 파일이 표시될 수 있습니다. `git diff`의 세 **기존 운영 파일**은 변경이 없어야 합니다. `retest`는 가상 요청이고 `verify`는 로컬 시험 자료만 검사합니다. 감사 이력은 `artifacts/stage10/audit.jsonl`에 추가되며 기존 항목을 삭제해서는 안 됩니다.
+- **중단:** 백업·해시 검증, 복원 검증 또는 소유권 검사가 하나라도 실패하면 뒤의 시험을 진행하지 않습니다. 원본·백업을 덮어쓰거나 Git 이력을 강제로 되돌리지 않습니다.
+
+### 1. 1~2단계 — 공개 파일 잔존·초기 회귀 검사 (로컬 통과)
+
+```powershell
+npm.cmd run test:r5
+npm.cmd run test:package
+npm.cmd run build -- --local
+```
+
+- **정상 기대:** 테스트 통과, 로컬 빌드에서 공개 `data.json` 제외. **금지 기대:** 기존 가상 메모가 정적 공개 파일로 다시 배포되지 않음. 실제 운영 URL의 `/data.json` 404 여부는 아래 별도 수동 점검 전까지 **미실행**입니다.
+
+### 2. 3~5단계 — 로그인·메모 소유권·DB 직접 접근 (로컬 소유권 검사 통과)
+
+```powershell
+node --test test/stage8-api-access.test.mjs
+```
+
+- **정상 기대:** 서버가 검증한 가상 A 신원으로 A 소유 메모 허용. **금지 기대:** 가상 B 신원으로 A 소유 메모 거부, 역할·소유자를 본문에서 조작한 요청 거부, 타인 행이 포함된 목록 거부.
+- 이 로컬 소유권 함수 시험은 **실제 로그인·운영 API·RLS/GRANT 검증이 아닙니다.** 실제 A/B 계정으로 A 자기 메모 CRUD와 B→A 단건 GET/PUT/DELETE 거부(기대 HTTP 404), 비로그인 `/api/notes`(기대 401), Supabase 원본 Data API 직접 조회 차단(기대 401/403), 운영 DB 권한의 읽기 전용 확인은 **모두 미실행**으로 남깁니다. 비밀키·토큰·실제 본문은 출력하거나 Git에 넣지 않습니다.
+
+### 3. 6~7단계 — 등록 기기와 복합 이상 접속 (가상 시험 통과)
+
+```powershell
+npm.cmd run decider:test
+npm.cmd run fixture:7
+```
+
+- **정상 기대:** 등록된 기기의 허용 경로 GET은 `allow`; 재인증이 확인된 가상 복합 이상 요청은 `allow`. **금지·추가 확인 기대:** 미등록 기기 `deny / device_not_registered`, 가상 복합 위험의 미인증 요청 `step_up / step_up_required`.
+- `fixture:7`은 가상 신호만 사용합니다. 운영 엔진의 실시간 기기 인증·재로그인 연결은 **미실행**입니다.
+
+### 4. 8단계 — 자료 구역·경로 및 API 소유권 (로컬 통과)
+
+```powershell
+node --test test/resource-id.test.mjs test/stage8-zones.test.mjs test/stage8-api-access.test.mjs
+```
+
+- **정상 기대:** 개인 메모 단건 GET 및 반 공지 읽기는 **판정기 가상 요청에서** 허용. **금지 기대:** 메모 전체 목록/쓰기 경로, 공지 쓰기, 강사 자료, 쿼리 우회·알 수 없는 경로, 타인 메모는 거부.
+- 반 공지는 판정 정책용 경로로 실제 운영 공지 API가 구현됐다는 뜻이 아닙니다. 운영 A/B API 교차 접근 실측은 **미실행**입니다.
+
+### 5. 9단계 — 조회 폭주 탐지와 정상 요청 유지 (가상 시험 통과)
+
+```powershell
+node --test test/stage9-input.test.mjs test/stage9-burst.test.mjs test/stage9-output.test.mjs
+npm.cmd run detect:test
+```
+
+- **정상 기대:** 같은 사용자의 10분 이내 GET 120건, 다른 사용자 혼합, 10분 밖에 흩어진 요청은 `observe`. **이상 요청 기대:** 같은 사용자 GET 121건 이상은 `propose_revocation / burst_read`로 **회수 제안만** 반환.
+- 운영 엔진이 실제 세션을 회수했는지에 대한 검증은 **미실행**입니다.
+
+### 6. 제작 1~3 복구 기능 회귀 검사 (로컬 29/29 통과)
+
+```powershell
+node --test test/stage10-policy.test.mjs test/stage10-restore.test.mjs test/stage10-note-restore.test.mjs
+```
+
+- **정상 기대:** 검증된 사본 복원, 시험 B 메모 한 건 ID·소유자·내용 해시 일치, 다른 두 메모와 기존 감사 이력 보존. **금지 기대:** 해시 위조·사본 누락 시 중단, A의 B 메모 복원 시도 거부, 미승인 정책 복원 거부, 중복 복원 거부.
+- 테스트는 독립된 임시 가상 사본을 만들며, 실제 운영 DB 정책 복원을 검증하지 않습니다. 기존 **29/29 통과**를 확인했고, 이번 제작 4에서도 **29/29를 다시 실행하여 통과**했습니다. 운영 DB 복원 실측은 미실행입니다.
+
+### 7. 운영 환경의 수동 확인 및 결과 기입 (모두 미실행)
+
+| 재확인할 사항 | 정상·거부 기대 | 제작 4 관측 |
+|---|---|---|
+| 배포의 정적 `/data.json` | HTTP 404, 공개 메모 재노출 없음 | **미실행** |
+| 비로그인 `/api/notes` | HTTP 401 | **미실행** |
+| 실제 A 계정의 자기 메모 CRUD | 정상 사용 가능 | **미실행** |
+| 실제 B 계정의 A 메모 GET·PUT·DELETE | HTTP 404 등 소유권 차단 | **미실행** |
+| Supabase 원본 Data API의 비인가 조회·GRANT/RLS 현행 상태 | 직접 접근 차단, 읽기 전용 정책 확인 | **미실행** |
+| 실제 ZTNA 기기 차단·step_up 및 9단계 세션 회수 | 운영 엔진의 별도 증거 필요 | **미실행** |
+| 운영 POST `/api/restore` | 비공개 시험 사본 미배포로 실제 자료 복원 불가(503 예상); 운영 호출 미실행 | **미실행** |
+
+**판정 기록 원칙:** 위 명령을 실행한 뒤 각 출력에서 실제 확인한 결과만 기입합니다. 통과하지 않은 항목과 실행하지 않은 운영 수동 시험은 계속 **미실행**으로 둡니다. 공식 심판 결과·로컬 가상 시험·운영 API 실측을 혼동하지 않습니다. 현재 `aleph.config.json`의 `step`은 10이며, 제출 묶음은 저장점 커밋·실제 배포 확인 후 생성합니다.
+
+
+## 10단계 저장점 (2026-11-04)
+
+- **복원 대상 및 사전 정책 사본:** 백업 기준은 `e6334b2`이며, `src/decider.mjs`, `aleph.config.json#allowedRoutes` 3개, README의 과거 DB 정책 근거를 `artifacts/stage10/verified-policy.json` 및 SHA-256으로 로컬에서 검증했습니다. **DB 정책 근거는 과거 기록이며 현재 운영 RLS/GRANT의 실측 백업이 아닙니다.** 안전 사본·가상 메모 본문은 Git에 포함하지 않습니다.
+- **제작 1 — 가상 변조:** 시험 사본 `artifacts/stage10/drill/decider.mjs`에서 기기 등록 조건 **한 줄만** 변경하고 정책 사본과의 차이를 표시했습니다. 원본 판정기와 운영 DB에는 쓰지 않았습니다.
+- **제작 2 — 안전 정책 복원:** 실행 전 대상·해시·변경 범위의 계획을 제시하고, `restore --confirm`에서 시험 사본을 백업의 원래 규칙으로 복원했습니다. 기존 감사 이력은 남기고 시작·완료 사건만 추가했습니다. 복원 후 가상 A 정상 허용, B→A 소유권 거부, 미등록 기기·강사 자료 거부 4항목을 재확인했습니다.
+- **제작 3 — B 가상 메모 단건 복원:** `notes` · `POST /api/restore`, ID `bbbbbbbb-2222-4222-8222-000000000010`을 로컬 가상 B 신원으로 복원했습니다. 비공개 사본의 ID·소유자·내용 SHA-256이 일치했고 다른 가상 메모 2건과 감사 이력이 유지됐습니다. 운영 Vercel에는 비공개 사본이 없어 이 경로로 **실제 DB 메모를 복원할 수 없으며**, 운영 복구 성공으로 기록하지 않습니다.
+- **제작 4 — 회귀 검사:** 사용자 PC에서 정책 백업 `verify`, 복원 `retest`, 메모 `verify` 통과, `test:r5` **2/2**, 패키징 테스트는 신규 `api/restore.js`를 목록에 반영한 뒤 **3/3**, API 소유권 **3/3**, 8단계 자원·구역·소유권 **13/13**, 9단계 단위 시험 **13/13**과 `detect:test` **6/6**, 10단계 복구 단위 시험 **29/29** 통과했습니다. `decider:test` **4/4**, `fixture:7` 정상 `allow`·복합 이상 `step_up`, `build -- --local` 성공도 확인했습니다. 중복 검사 항목은 합계에 중복 합산하지 않습니다.
+- **운영 검증과 제한:** 실제 A/B 운영 계정의 GET·PUT·DELETE 교차 접근, 현행 Supabase RLS/GRANT, 실제 기기/세션 회수와 운영 복원 API 실측은 **미실행**입니다. `restoreRoute`는 운영 복원 대상이 아니므로 `null`을 유지합니다. `allowedRoutes`, 로그인 발급자, 기존 1~9단계 정책은 변경하지 않고 `step`만 10으로 올렸습니다.
+- **재실행:** `node scripts/stage10-policy.mjs verify`, `node scripts/stage10-restore.mjs retest`, `node scripts/stage10-note.mjs verify`, `node --test test/stage10-policy.test.mjs test/stage10-restore.test.mjs test/stage10-note-restore.test.mjs`, `npm.cmd run decider:test`, `npm.cmd run detect:test`, `npm.cmd run test:package`, `npm.cmd run build -- --local`을 검사합니다. 이전 실행에서 생성한 사본은 덮어쓰지 않습니다. 실제 배포의 `step: 10`·커밋 일치 확인 후 `npm.cmd run bundle`로 제출 JSON을 생성합니다. 이때도 실제 HTTP 결과·로컬 가상 검증·미실행 작업을 구분합니다.

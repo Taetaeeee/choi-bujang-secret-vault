@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -13,7 +13,7 @@ export async function runAttackChecks(config) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
   }
   if (typeof config.sampleMarker !== 'string' || !config.sampleMarker) throw new Error('가상 메모의 확인 표시를 넣어 주세요.');
-  if (config.step === 3 || config.step === 4 || config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9) {
+  if (config.step === 3 || config.step === 4 || config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10) {
     // 공개 경로에 실제 비인증 요청을 보냅니다. 토큰과 본문은 기록하지 않습니다.
     const options = { redirect: 'error', signal: AbortSignal.timeout(10000), credentials: 'omit' };
     const [staticResponse, apiResponse, deploymentResponse, pageResponse] = await Promise.all([
@@ -61,7 +61,7 @@ export async function runAttackChecks(config) {
         expected: '화면 응답 헤더 X-Content-Type-Options: nosniff',
         observed: `HTTP ${pageResponse.status}; nosniff ${pageResponse.headers.get('x-content-type-options') === 'nosniff'}` },
     ];
-    if (config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9) {
+    if (config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10) {
       // 6단계 이후: 실제 운영 접근이 아닌 엔진 형식의 로컬 가상 요청 연습입니다.
       const { decide, RULE_IDS } = await import('./decider.mjs');
       const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
@@ -74,7 +74,7 @@ export async function runAttackChecks(config) {
         observed: `등록 ${registered.decision} / ${registered.reasonCode}; 미등록 ${unregistered.decision} / ${unregistered.reasonCode}; 규칙 등록 ${RULE_IDS.includes('device_registered')}`,
       });
     }
-    if (config.step === 7 || config.step === 8 || config.step === 9) {
+    if (config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10) {
       // 7단계 이후: 운영 로그인/실제 메모 차단이 아닌 로컬 가상 사건 판정입니다.
       const { decide, RULE_IDS } = await import('./decider.mjs');
       const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
@@ -99,7 +99,7 @@ export async function runAttackChecks(config) {
         observed: `위조 출처 ${forged.decision} / ${forged.reasonCode}; 운영 헤더 검증 미실행`,
       });
     }
-    if (config.step === 8 || config.step === 9) {
+    if (config.step === 8 || config.step === 9 || config.step === 10) {
       // 8단계: 판정기 구역 정책과 서버 내부 권한 함수의 가상 검증만 기록합니다.
       // 타 계정 로그인·운영 데이터 접근은 수행하지 않았으므로 성공으로 적지 않습니다.
       const { decide, RULE_IDS } = await import('./decider.mjs');
@@ -149,7 +149,7 @@ export async function runAttackChecks(config) {
         observed: `HTTP ${direct.status}; 비인증 거부 ${direct.status === 401}; 실제 A/B 교차 접근 미실행`,
       });
     }
-    if (config.step === 9) {
+    if (config.step === 9 || config.step === 10) {
       // 9단계: 탐지기의 출력 계약을 가상 사건으로만 점검합니다.
       // 운영 엔진의 사건 전달·실제 세션 회수는 연동하지 않으며 성공으로 기록하지 않습니다.
       const { detect } = await import('./detect.mjs');
@@ -182,7 +182,81 @@ export async function runAttackChecks(config) {
         observed: `혼합 ${mixed.action}; 느린 조회 ${slow.action}; GET 이외 ${nonGet.action}; 정상 키 ${Object.keys(normal).join(',')}; 운영 기기 권한 미변경`,
       });
     }
-    if (config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9) {
+    if (config.step === 10) {
+      // 10단계: 로컬 사본이 실제로 있을 때만 검증하고, 없는 환경에서는 미실행을 기록합니다.
+      // 검증된 가상 메모·감사 내용, 토큰 또는 사용자의 개인 자료는 출력하지 않습니다.
+      const { resolve } = await import('node:path');
+      const { fileURLToPath } = await import('node:url');
+      const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
+      const { verifyPolicyBackup, requireUntouchedSources, backupPaths } =
+        await import('./stage10-policy.mjs');
+      const { retestRestoredPolicy } = await import('./stage10-restore.mjs');
+      const { verifyRestoredVirtualBNote } = await import('./stage10-note-restore.mjs');
+      const { readFileSync } = await import('node:fs');
+      const { createHash } = await import('node:crypto');
+      const checksum = bytes => createHash('sha256').update(bytes).digest('hex');
+      let manifest;
+      let verified = false;
+      try {
+        const result = verifyPolicyBackup(root);
+        manifest = result.manifest;
+        requireUntouchedSources(root, manifest);
+        verified = true;
+      } catch { /* 누락·변조는 검사 성공으로 기록하지 않습니다. */ }
+      checks.push({
+        attackId: 'stage10_policy_backup_local',
+        expected: '로컬 사전 백업·SHA-256 일치, 기존 규칙·허용 경로·README DB 기록 확인; 운영 RLS 미검증',
+        observed: verified
+          ? `백업 검증 ${verified}; 기준 ${manifest.sourceCommit.slice(0, 12)}; 허용 경로 ${manifest.allowedRoutes.values.length}개; DB 운영 현황 미검증`
+          : '미실행 또는 확인 실패: 로컬 검증된 사본/해시 필요; 운영 DB 정책 미검증',
+      });
+      let restoredPolicy = '미실행';
+      let access = '미실행';
+      if (verified) {
+        try {
+          const { drill } = backupPaths(root);
+          restoredPolicy = checksum(readFileSync(drill)) === manifest.decider.sha256;
+          if (restoredPolicy) {
+            const { normal } = (await import('../scripts/fixture-7.mjs')).fixtureRequests();
+            const results = await retestRestoredPolicy(root, normal);
+            access = results.every(result => result.passed) ? '가상 4항목 통과' : '가상 검증 실패';
+          }
+        } catch { access = '미실행 또는 복원 검증 실패'; }
+      }
+      checks.push({
+        attackId: 'stage10_restored_policy_local',
+        expected: '시험 정책 원본 해시로 복원; 가상 A 정상 허용·B의 A 자료 거부·미등록 기기/다른 서비스 거부',
+        observed: `시험 사본 복원 해시 ${restoredPolicy}; ${access}; 실제 운영 A/B 접근 미실행`,
+      });
+      let restoredNote = '미실행';
+      let otherCount = '미실행';
+      if (verified) {
+        try {
+          const result = verifyRestoredVirtualBNote(root);
+          restoredNote = result.id === 'bbbbbbbb-2222-4222-8222-000000000010'
+            && result.owner === 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb'
+            && /^[a-f0-9]{64}$/u.test(result.contentSha256);
+          otherCount = result.otherNotesPreserved;
+        } catch { /* 로컬 사본이 없거나 검증 실패 */ }
+      }
+      checks.push({
+        attackId: 'stage10_virtual_note_local',
+        expected: '가상 B 메모 1건 ID·소유자·내용 SHA-256 사본 일치, 다른 메모·감사 기록 보존; DB 실측 아님',
+        observed: `가상 B 메모 복원 ${restoredNote}; 다른 가상 메모 ${otherCount === '미실행' ? otherCount : `${otherCount}건`}; 운영 DB 복원 미실행`,
+      });
+      // 토큰 없이 POST만 보내며 자료와 정책을 절대로 수정하지 않습니다.
+      const restoreResponse = await fetch(new URL('/api/restore', app), {
+        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
+        credentials: 'omit', headers: { 'content-type': 'application/json' },
+        body: '{}',
+      });
+      checks.push({
+        attackId: 'stage10_anonymous_restore_post',
+        expected: '비로그인 POST /api/restore는 복원 불가(401 또는 사본 미배포 시 503); 운영 실제 복원 미실행',
+        observed: `HTTP ${restoreResponse.status}; 비로그인 복원 불가 ${[401, 403, 503].includes(restoreResponse.status)}; 운영 데이터 복원 미실행`,
+      });
+    }
+    if (config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10) {
       // 공개 키로 원본 Data API에 직접 접근하는 실제 비인증 요청입니다.
       // 키나 API 응답 본문은 제출 결과와 로그에 포함하지 않습니다.
       const original = new URL(config.originalApiUrl);
