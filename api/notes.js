@@ -1,14 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
-import config from '../aleph.config.json' with { type: 'json' };
-import { createLoginVerifier } from '../src/verify-login.mjs';
+import { authorizeVault, sameOrigin } from '../src/vault-session.mjs';
+import { getDeviceApproval } from '../src/device-approval.mjs';
 import { personalNoteRequestResourceId } from '../src/resource-id.mjs';
 import { verifiedApiIdentity, ownsStoredNote, ownsAllStoredNotes } from '../src/api-resource-access.mjs';
 
 // 4단계 제작 2: 검증된 사용자 ID와 DB owner_id가 일치할 때만 접근합니다.
 // DB GRANT/RLS 정책 변경은 다음 제작 단계에서 진행합니다.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
-let verifyLogin;
 
 function validNoteFields(value, allowId = false) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -32,8 +31,11 @@ function parseBody(request) {
   }
 }
 
-export default async function handler(request, response) {
+export async function notesHandler(request, response, {
+  authorize = authorizeVault, makeDb = createClient, deviceLookup = getDeviceApproval,
+} = {}) {
   response.setHeader('Cache-Control', 'no-store');
+  response.setHeader('Vary', 'Cookie');
   response.setHeader('X-Content-Type-Options', 'nosniff');
 
   // Vercel rewrite: /api/notes/:id -> /api/notes?noteId=:id
@@ -49,32 +51,32 @@ export default async function handler(request, response) {
     return response.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
   }
 
-  // 브라우저가 제공하는 userId/role/owner_id는 신뢰하지 않습니다.
-  const authorization = request.headers?.authorization;
-  if (!authorization) return response.status(401).json({ error: 'UNAUTHORIZED' });
-
-  const url = process.env.SUPABASE_URL;
-  const secretKey = process.env.SUPABASE_SECRET_KEY;
-  if (!url || !secretKey) return response.status(503).json({ error: 'SERVICE_UNAVAILABLE' });
-
-  let identity;
-  try {
-    verifyLogin ??= createLoginVerifier({ config, supabaseSecretKey: secretKey });
-    identity = await verifyLogin(authorization);
-  } catch {
-    return response.status(401).json({ error: 'UNAUTHORIZED' });
+  // JWT/세션 검증과 기기 승인 상태 확인은 모두 서버에서 수행합니다.
+  const auth = await authorize(request, response);
+  if (!auth.identity) return response.status(auth.status).json({ error: auth.error });
+  const identity = auth.identity;
+  // 데이터 변경 요청은 SameSite 쿠키와 같은 출처 검증을 함께 적용합니다.
+  if (request.method !== 'GET' && !sameOrigin(request)) {
+    return response.status(403).json({ error: 'ORIGIN_FORBIDDEN' });
   }
   if (!verifiedApiIdentity(identity)) {
     return response.status(401).json({ error: 'UNAUTHORIZED' });
   }
-
   if (hasId && (typeof rawId !== 'string' || !UUID.test(rawId))) {
     return response.status(400).json({ error: 'INVALID_ID' });
   }
 
-  const db = createClient(url, secretKey, {
+  const db = makeDb(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
+  const approval = await deviceLookup(db, request, identity);
+  if (approval.status === 'unavailable') {
+    return response.status(503).json({ error: 'DEVICE_APPROVAL_UNAVAILABLE' });
+  }
+  if (approval.status !== 'approved') {
+    return response.status(403).json({ error: 'DEVICE_NOT_APPROVED' });
+  }
+  // 승인된 브라우저에서도 아래 기존 메모 소유자 필터를 그대로 적용합니다.
   try {
     if (!hasId && request.method === 'GET') {
       // 모든 목록 조회에서 서버가 검증한 소유자 ID로 제한합니다.
@@ -174,3 +176,5 @@ export default async function handler(request, response) {
     return response.status(502).json({ error: 'DATA_UNAVAILABLE' });
   }
 }
+
+export default function handler(request, response) { return notesHandler(request, response); }
