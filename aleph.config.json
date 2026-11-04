@@ -15,5 +15,5 @@
     "GET /api/notices/:id"
   ],
   "originalApiUrl": "https://tlfyygqfuqqfnmtxkghb.supabase.co/rest/v1/vault_user_notes",
-  "restoreRoute": null
+  "restoreRoute": "POST /api/restore"
 }

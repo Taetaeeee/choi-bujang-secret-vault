@@ -414,5 +414,16 @@ node --test test/stage10-policy.test.mjs test/stage10-restore.test.mjs test/stag
 - **제작 2 — 안전 정책 복원:** 실행 전 대상·해시·변경 범위의 계획을 제시하고, `restore --confirm`에서 시험 사본을 백업의 원래 규칙으로 복원했습니다. 기존 감사 이력은 남기고 시작·완료 사건만 추가했습니다. 복원 후 가상 A 정상 허용, B→A 소유권 거부, 미등록 기기·강사 자료 거부 4항목을 재확인했습니다.
 - **제작 3 — B 가상 메모 단건 복원:** `notes` · `POST /api/restore`, ID `bbbbbbbb-2222-4222-8222-000000000010`을 로컬 가상 B 신원으로 복원했습니다. 비공개 사본의 ID·소유자·내용 SHA-256이 일치했고 다른 가상 메모 2건과 감사 이력이 유지됐습니다. 운영 Vercel에는 비공개 사본이 없어 이 경로로 **실제 DB 메모를 복원할 수 없으며**, 운영 복구 성공으로 기록하지 않습니다.
 - **제작 4 — 회귀 검사:** 사용자 PC에서 정책 백업 `verify`, 복원 `retest`, 메모 `verify` 통과, `test:r5` **2/2**, 패키징 테스트는 신규 `api/restore.js`를 목록에 반영한 뒤 **3/3**, API 소유권 **3/3**, 8단계 자원·구역·소유권 **13/13**, 9단계 단위 시험 **13/13**과 `detect:test` **6/6**, 10단계 복구 단위 시험 **29/29** 통과했습니다. `decider:test` **4/4**, `fixture:7` 정상 `allow`·복합 이상 `step_up`, `build -- --local` 성공도 확인했습니다. 중복 검사 항목은 합계에 중복 합산하지 않습니다.
-- **운영 검증과 제한:** 실제 A/B 운영 계정의 GET·PUT·DELETE 교차 접근, 현행 Supabase RLS/GRANT, 실제 기기/세션 회수와 운영 복원 API 실측은 **미실행**입니다. `restoreRoute`는 운영 복원 대상이 아니므로 `null`을 유지합니다. `allowedRoutes`, 로그인 발급자, 기존 1~9단계 정책은 변경하지 않고 `step`만 10으로 올렸습니다.
+- **운영 검증과 제한:** 실제 A/B 운영 계정의 GET·PUT·DELETE 교차 접근, 현행 Supabase RLS/GRANT, 실제 기기/세션 회수와 운영 복원 API 실측은 **미실행**입니다. 제출 설정 `restoreRoute`는 구현된 가상 복원 핸들러의 **`POST /api/restore`**로 지정합니다. 이는 복원 경로를 심판에 알리는 설정이며, 실제 운영 DB 복원 성공의 증거가 아닙니다. `allowedRoutes` 3개, 로그인 발급자, 기존 1~9단계 정책과 `step: 10`은 그대로 유지합니다.
 - **재실행:** `node scripts/stage10-policy.mjs verify`, `node scripts/stage10-restore.mjs retest`, `node scripts/stage10-note.mjs verify`, `node --test test/stage10-policy.test.mjs test/stage10-restore.test.mjs test/stage10-note-restore.test.mjs`, `npm.cmd run decider:test`, `npm.cmd run detect:test`, `npm.cmd run test:package`, `npm.cmd run build -- --local`을 검사합니다. 이전 실행에서 생성한 사본은 덮어쓰지 않습니다. 실제 배포의 `step: 10`·커밋 일치 확인 후 `npm.cmd run bundle`로 제출 JSON을 생성합니다. 이때도 실제 HTTP 결과·로컬 가상 검증·미실행 작업을 구분합니다.
+
+### `restore --confirm` 실행 직전 필수 백업 재검증 순서
+
+**검증 목적:** 아래는 제작 2에서 적용한 안전 복원 절차를 명시한 것이며, 이 문서 수정 후 실제 복원을 새로 실행했다는 뜻이 아닙니다. 사전 백업은 Git에서 제외한 로컬 `artifacts/stage10/verified-policy.json` 및 `verified-policy.sha256`입니다.
+
+1. 먼저 `node scripts/stage10-policy.mjs verify`를 실행해 **디스크의 검증 사본과 해시 파일을 다시 읽고** SHA-256 및 사본 내부 항목별 해시를 대조합니다. 백업이 없거나 해시 파일이 누락되거나, SHA-256·사본 구조 검증이 실패하면 **즉시 중단**합니다. 기존 사본을 덮어쓰거나 재생성하지 않습니다.
+2. 다음 `node scripts/stage10-restore.mjs plan`을 실행해 검증 사본의 **기준 버전**(`e6334b2060886d836e6b9da11609d1afa2fabbaf`), **백업 SHA-256**(`62c7677f2638d0011fb483288dec1a201b707fe8612f35efb8915d373813d117`), 변경 대상(`artifacts/stage10/drill/decider.mjs`), 복원 전후 내용 해시와 **변경 범위 1줄**을 **실제 쓰기 전에** 확인합니다. 허용 경로 3개와 다른 서비스 규칙, 감사 이력 및 운영 DB는 변경 대상이 아니어야 합니다.
+3. 위 두 명령의 검증이 모두 통과하고 대상·버전·해시·변경 범위를 확인한 경우에만 `node scripts/stage10-restore.mjs restore --confirm`을 실행합니다. 해당 명령도 실행 직전에 사본을 다시 읽고 해시와 원본 정책·시험 사본의 예상 변경 범위를 재검사하며, **사본 누락·무결성 오류·설정 불일치·예상하지 못한 변조라면 복원을 시작하지 않습니다.** 복원은 시험 정책 한 건에만 적용하며 기존 감사 기록은 보존합니다.
+4. 복원 후 `node scripts/stage10-restore.mjs retest`, `node scripts/stage10-note.mjs verify`로 가상 A의 정상 요청 허용, B의 A 자료 요청 거부 및 B 메모 ID·소유자·내용 해시 일치를 확인합니다. 오류가 발생하면 그 상태에서 중단하고 **통과로 기록하지 않습니다**.
+
+**실행 기록 구분:** 2026-11-04 사용자 PC에서 기존 시험 정책 복원, 백업 재검증 및 가상 요청 재시험 통과 로그를 확인했습니다. **이번 제출 정정 이후의 `restore --confirm` 재실행은 미실행**이며, 이미 복원된 시험 사본을 다시 변조하거나 복원하지 않습니다. 실제 A/B 운영 계정 및 Supabase 운영 DB 정책 복원은 **미실행**입니다. 공식 심판의 가상 메모 한 건 복원 판단은 **확인 못 함(실패 판정 아님)**으로 기록합니다.

@@ -134,9 +134,10 @@ export function verifyHistoricalDbEvidence(root, manifest) {
   }
 }
 
-// 저장점에서는 step 9→10만 변경할 수 있습니다. 백업의 원래 설정 파일을
-// 공백/순서까지 그대로 재구성해 SHA-256을 확인하므로 다른 설정 변경은 막습니다.
-// 기존 9단계에서 생성한 사본을 다시 만들거나 덮어쓸 필요가 없습니다.
+// 기존 백업 이후 허용하는 설정 변경은 두 가지뿐입니다:
+// (1) 10단계 저장점의 step 9→10, (2) 심판이 요구한 restoreRoute null→POST /api/restore.
+// 두 변경을 역으로 적용한 원문이 백업 당시 설정 SHA-256과 정확히 같아야 합니다.
+// 허용 경로/발급자 등 다른 변경은 계속 중단하고 기존 백업은 덮어쓰지 않습니다.
 export function verifyConfigSource(root, manifest) {
   const path = 'aleph.config.json';
   const originalSha = manifest.sourceFileHashes?.[path];
@@ -153,7 +154,17 @@ export function verifyConfigSource(root, manifest) {
   const match = matches[0];
   const beforeStepBump = raw.slice(0, match.index) + match[1] + '9'
     + raw.slice(match.index + match[0].length);
-  if (checksum(beforeStepBump) !== originalSha) fail('current_source_changed_since_backup');
+  if (checksum(beforeStepBump) === originalSha) return;
+
+  // 심판 요구에 따라 경로가 지정된 경우에만 해당 한 필드를 원래 null로 되돌려
+  // 백업의 원본 해시와 비교합니다. 다른 값 또는 다른 파일 수정은 통과하지 않습니다.
+  const routeMatches = [...beforeStepBump.matchAll(/("restoreRoute"\s*:\s*)"POST \/api\/restore"(?=\s*[,}])/gu)];
+  if (routeMatches.length !== 1) fail('current_source_changed_since_backup');
+  const routeMatch = routeMatches[0];
+  const beforeRouteBump = beforeStepBump.slice(0, routeMatch.index)
+    + routeMatch[1] + 'null'
+    + beforeStepBump.slice(routeMatch.index + routeMatch[0].length);
+  if (checksum(beforeRouteBump) !== originalSha) fail('current_source_changed_since_backup');
 }
 
 export function requireUntouchedSources(root, manifest) {
