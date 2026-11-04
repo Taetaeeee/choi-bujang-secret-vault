@@ -1,7 +1,7 @@
 // The student changes this check as each stage adds an attack to the same app.
 // Never return tokens, private keys, real names, or note bodies.
 export async function runAttackChecks(config) {
-  if (![1, 2, 3, 4, 5, 6, 7, 8, 9, 10].includes(config.step)) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
+  if (!Number.isInteger(config.step) || config.step < 1 || config.step > 11) throw new Error('이 단계의 공격 점검을 src/attack-check.mjs에 구현해 주세요.');
   let app;
   try {
     app = new URL(config.publicAppUrl);
@@ -13,7 +13,7 @@ export async function runAttackChecks(config) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
   }
   if (typeof config.sampleMarker !== 'string' || !config.sampleMarker) throw new Error('가상 메모의 확인 표시를 넣어 주세요.');
-  if (config.step === 3 || config.step === 4 || config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10) {
+  if (config.step === 3 || config.step === 4 || config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10 || config.step === 11) {
     // 공개 경로에 실제 비인증 요청을 보냅니다. 토큰과 본문은 기록하지 않습니다.
     const options = { redirect: 'error', signal: AbortSignal.timeout(10000), credentials: 'omit' };
     const [staticResponse, apiResponse, deploymentResponse, pageResponse] = await Promise.all([
@@ -61,7 +61,7 @@ export async function runAttackChecks(config) {
         expected: '화면 응답 헤더 X-Content-Type-Options: nosniff',
         observed: `HTTP ${pageResponse.status}; nosniff ${pageResponse.headers.get('x-content-type-options') === 'nosniff'}` },
     ];
-    if (config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10) {
+    if (config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10 || config.step === 11) {
       // 6단계 이후: 실제 운영 접근이 아닌 엔진 형식의 로컬 가상 요청 연습입니다.
       const { decide, RULE_IDS } = await import('./decider.mjs');
       const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
@@ -74,7 +74,7 @@ export async function runAttackChecks(config) {
         observed: `등록 ${registered.decision} / ${registered.reasonCode}; 미등록 ${unregistered.decision} / ${unregistered.reasonCode}; 규칙 등록 ${RULE_IDS.includes('device_registered')}`,
       });
     }
-    if (config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10) {
+    if (config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10 || config.step === 11) {
       // 7단계 이후: 운영 로그인/실제 메모 차단이 아닌 로컬 가상 사건 판정입니다.
       const { decide, RULE_IDS } = await import('./decider.mjs');
       const { fixtureRequests } = await import('../scripts/fixture-7.mjs');
@@ -99,7 +99,7 @@ export async function runAttackChecks(config) {
         observed: `위조 출처 ${forged.decision} / ${forged.reasonCode}; 운영 헤더 검증 미실행`,
       });
     }
-    if (config.step === 8 || config.step === 9 || config.step === 10) {
+    if (config.step === 8 || config.step === 9 || config.step === 10 || config.step === 11) {
       // 8단계: 판정기 구역 정책과 서버 내부 권한 함수의 가상 검증만 기록합니다.
       // 타 계정 로그인·운영 데이터 접근은 수행하지 않았으므로 성공으로 적지 않습니다.
       const { decide, RULE_IDS } = await import('./decider.mjs');
@@ -149,7 +149,7 @@ export async function runAttackChecks(config) {
         observed: `HTTP ${direct.status}; 비인증 거부 ${direct.status === 401}; 실제 A/B 교차 접근 미실행`,
       });
     }
-    if (config.step === 9 || config.step === 10) {
+    if (config.step === 9 || config.step === 10 || config.step === 11) {
       // 9단계: 탐지기의 출력 계약을 가상 사건으로만 점검합니다.
       // 운영 엔진의 사건 전달·실제 세션 회수는 연동하지 않으며 성공으로 기록하지 않습니다.
       const { detect } = await import('./detect.mjs');
@@ -182,7 +182,7 @@ export async function runAttackChecks(config) {
         observed: `혼합 ${mixed.action}; 느린 조회 ${slow.action}; GET 이외 ${nonGet.action}; 정상 키 ${Object.keys(normal).join(',')}; 운영 기기 권한 미변경`,
       });
     }
-    if (config.step === 10) {
+    if (config.step === 10 || config.step === 11) {
       // 10단계: 로컬 사본이 실제로 있을 때만 검증하고, 없는 환경에서는 미실행을 기록합니다.
       // 검증된 가상 메모·감사 내용, 토큰 또는 사용자의 개인 자료는 출력하지 않습니다.
       const { resolve } = await import('node:path');
@@ -256,7 +256,41 @@ export async function runAttackChecks(config) {
         observed: `HTTP ${restoreResponse.status}; 비로그인 복원 불가 ${[401, 403, 503].includes(restoreResponse.status)}; 운영 데이터 복원 미실행`,
       });
     }
-    if (config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10) {
+    if (config.step === 11) {
+      // 설치 자료와 비로그인 기기 API만 실측합니다. 승인된 계정의 쿠키·개인 자료는 읽지 않습니다.
+      const [manifestResponse, deviceResponse] = await Promise.all([
+        fetch(new URL('/manifest.webmanifest', app), options),
+        fetch(new URL('/api/device', app), options),
+      ]);
+      let manifestValid = false;
+      if (manifestResponse.ok) {
+        try {
+          const manifest = await manifestResponse.json();
+          const icons = Array.isArray(manifest?.icons) ? manifest.icons : [];
+          manifestValid = manifest.name === 'BYTE BACK 내 자료실'
+            && manifest.start_url === '/' && manifest.scope === '/'
+            && manifest.display === 'standalone'
+            && ['192x192', '512x512'].every(size => icons.some(icon =>
+              icon.sizes === size && icon.type === 'image/png'));
+        } catch { /* Manifest 형식 오류는 통과로 기록하지 않습니다. */ }
+      }
+      checks.push({
+        attackId: 'stage11_public_manifest',
+        expected: '배포 Manifest에 접속 앱 이름·독립 실행·192/512 아이콘 포함; 설치만으로 기기 승인하지 않음',
+        observed: `HTTP ${manifestResponse.status}; Manifest 형식 일치 ${manifestValid}; 실제 설치·승인 별도`,
+      });
+      let deviceDenied = false;
+      try {
+        const data = await deviceResponse.json();
+        deviceDenied = deviceResponse.status === 401 && data?.error === 'UNAUTHORIZED';
+      } catch { /* 오류 본문을 출력하지 않습니다. */ }
+      checks.push({
+        attackId: 'stage11_unauthenticated_device',
+        expected: '비로그인 GET /api/device는 401 UNAUTHORIZED; 승인 전후 실계정 요청은 별도 운영 확인',
+        observed: `HTTP ${deviceResponse.status}; 비로그인 거부 ${deviceDenied}; 실제 A/B 교차 접근 자동 검사 미실행`,
+      });
+    }
+    if (config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10 || config.step === 11) {
       // 공개 키로 원본 Data API에 직접 접근하는 실제 비인증 요청입니다.
       // 키나 API 응답 본문은 제출 결과와 로그에 포함하지 않습니다.
       const original = new URL(config.originalApiUrl);

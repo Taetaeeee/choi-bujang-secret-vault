@@ -134,9 +134,9 @@ export function verifyHistoricalDbEvidence(root, manifest) {
   }
 }
 
-// 기존 백업 이후 허용하는 설정 변경은 두 가지뿐입니다:
-// (1) 10단계 저장점의 step 9→10, (2) 심판이 요구한 restoreRoute null→POST /api/restore.
-// 두 변경을 역으로 적용한 원문이 백업 당시 설정 SHA-256과 정확히 같아야 합니다.
+// 기존 백업 이후 허용하는 설정 변경은 단계 번호 9→10/11과
+// 심판이 요구한 restoreRoute null→POST /api/restore뿐입니다.
+// 변경을 역으로 적용한 원문이 백업 당시 설정 SHA-256과 정확히 같아야 합니다.
 // 허용 경로/발급자 등 다른 변경은 계속 중단하고 기존 백업은 덮어쓰지 않습니다.
 export function verifyConfigSource(root, manifest) {
   const path = 'aleph.config.json';
@@ -146,10 +146,10 @@ export function verifyConfigSource(root, manifest) {
   if (checksum(raw) === originalSha) return;
   let config;
   try { config = JSON.parse(raw); } catch { fail('current_source_changed_since_backup'); }
-  if (config.step !== 10 || checksum(JSON.stringify(config.allowedRoutes)) !== manifest.allowedRoutes.sha256) {
+  if (![10, 11].includes(config.step) || checksum(JSON.stringify(config.allowedRoutes)) !== manifest.allowedRoutes.sha256) {
     fail('current_source_changed_since_backup');
   }
-  const matches = [...raw.matchAll(/("step"\s*:\s*)10(?=\s*[,}])/gu)];
+  const matches = [...raw.matchAll(/("step"\s*:\s*)(10|11)(?=\s*[,}])/gu)];
   if (matches.length !== 1) fail('current_source_changed_since_backup');
   const match = matches[0];
   const beforeStepBump = raw.slice(0, match.index) + match[1] + '9'

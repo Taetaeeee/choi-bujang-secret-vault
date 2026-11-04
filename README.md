@@ -1,6 +1,6 @@
 # BYTE BACK 방어전 시작 틀 R5
 
-이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **10**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
+이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **11**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
 ## 1단계 기록 — 학생이 했던 세 걸음
 
@@ -14,7 +14,7 @@
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
-`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 10입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
+`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 11입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
 
 로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. `src/attack-check.mjs`는 5단계의 공개 경로 및 Supabase 원본 API에 직접 비인증 요청을 보내 결과를 기록합니다. 이 학생 자기 점검은 공식 심판 판정이 아닙니다.
 
@@ -427,3 +427,12 @@ node --test test/stage10-policy.test.mjs test/stage10-restore.test.mjs test/stag
 4. 복원 후 `node scripts/stage10-restore.mjs retest`, `node scripts/stage10-note.mjs verify`로 가상 A의 정상 요청 허용, B의 A 자료 요청 거부 및 B 메모 ID·소유자·내용 해시 일치를 확인합니다. 오류가 발생하면 그 상태에서 중단하고 **통과로 기록하지 않습니다**.
 
 **실행 기록 구분:** 2026-11-04 사용자 PC에서 기존 시험 정책 복원, 백업 재검증 및 가상 요청 재시험 통과 로그를 확인했습니다. **이번 제출 정정 이후의 `restore --confirm` 재실행은 미실행**이며, 이미 복원된 시험 사본을 다시 변조하거나 복원하지 않습니다. 실제 A/B 운영 계정 및 Supabase 운영 DB 정책 복원은 **미실행**입니다. 공식 심판의 가상 메모 한 건 복원 판단은 **확인 못 함(실패 판정 아님)**으로 기록합니다.
+
+## 11단계 저장점 준비 — 설치형 접속 앱 및 기기 승인 (2026-11-04)
+
+- **제작 1:** `public/manifest.webmanifest`와 192·512px 아이콘을 추가하고 기존 자료실을 PWA 접속 화면으로 구성했습니다. 기기 승인 상태와 오프라인 안내를 표시하되, 설치 여부는 승인 근거로 쓰지 않습니다. 개인 자료를 오프라인 캐시에 저장하지 않습니다.
+- **제작 2:** `/api/device`에서 로그인 계정의 승인 요청을 `pending`으로 생성하고, 별도 운영자가 Supabase SQL Editor에서 신청자·요청 ID를 확인한 뒤 `approved`로 변경하도록 했습니다. `/api/notes`는 매 요청마다 서버에서 승인 상태 및 자료 소유권을 검사하여 미승인 접근을 차단합니다. 로그인 토큰은 브라우저 저장소 대신 서버만 읽을 수 있는 암호화 HttpOnly 쿠키로 처리합니다.
+- **운영 검증:** testA 실습 계정의 동일 브라우저에서 승인 요청 `pending`, 승인 전 `GET /api/notes` **HTTP 403 / DEVICE_NOT_APPROVED**를 확인했습니다. Supabase의 승인 테이블 RLS 활성화와 일반 사용자 직접 조회 권한 없음도 SQL Editor에서 확인했습니다. 운영자 승인 후 DB `approved`, 웹앱 서버 승인 확인 및 `GET /api/notes` **HTTP 200**, 메모 목록·기존 가상 자료 표시를 사용자 화면에서 확인했습니다. 실제 메모 추가·수정·삭제, 다른 기기 및 testB의 교차 요청은 **미실행**입니다.
+- **승인 구현 한계:** 기기 식별은 서버 발급 불투명 HttpOnly 쿠키에 바인딩된 승인 기록으로, 하드웨어 기기 증명이 아닙니다. PWA 설치만으로 기기가 승인되거나 브라우저가 스스로 상태를 `approved`로 변경할 수 없습니다. 이 승인 기록과 외부 ZTNA 엔진 `deviceRegistered`의 운영 연동은 **미실측**입니다.
+- **기존 단계 보존:** `src/decider.mjs`의 18개 요청 필드 계약과 `RULE_IDS`, 9단계 탐지, 10단계 비공개 백업·감사 이력을 유지합니다. 기존 백업을 재생성하거나 `restore --confirm`을 다시 실행하지 않습니다. 10단계 공식 심판은 커밋 `7349244`로 기본 조건 5개·완결성 가점 3개, **100/100점**을 받았습니다(사용자 제공 결과).
+- **설정 및 재실행:** `aleph.config.json`은 `step: 11`로 올리고 `judgeIssuer`, `identityProvider`, 허용 경로 3개, `originalApiUrl`, `restoreRoute`를 보존합니다. `node --test test/stage11-device.test.mjs test/stage11-pwa.test.mjs test/stage11-savepoint.test.mjs test/stage10-savepoint-check.test.mjs` 및 `npm.cmd run decider:test`, `npm.cmd run fixture:7`, `npm.cmd run detect:test`, `npm.cmd run test:r5`, `npm.cmd run test:package`, `npm.cmd run build -- --local`로 재검증합니다. 새 Clone 설치와 Vercel 배포 단계·커밋 확인 후 `npm.cmd run bundle`로 제출 묶음을 생성합니다. 진행 전 아직 실행하지 않은 검사는 통과로 기록하지 않습니다.

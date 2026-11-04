@@ -23,7 +23,7 @@ test('10단계 제출 점검은 기존 기록을 보존하고 로컬/실제 HTTP
     throw new Error('unexpected_mock_url');
   };
   try {
-    const output = await runAttackChecks(config);
+    const output = await runAttackChecks({ ...config, step: 10 });
     assert.equal(output.length, 18);
     assert.equal(new Set(output.map(entry => entry.attackId)).size, 18);
     for (const item of output) {
