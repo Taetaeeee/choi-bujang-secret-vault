@@ -16,12 +16,16 @@ export async function runAttackChecks(config) {
   if (config.step === 3 || config.step === 4 || config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10 || config.step === 11 || config.step === 12) {
     // 공개 경로에 실제 비인증 요청을 보냅니다. 토큰과 본문은 기록하지 않습니다.
     const options = { redirect: 'error', signal: AbortSignal.timeout(10000), credentials: 'omit' };
-    const [staticResponse, apiResponse, deploymentResponse, pageResponse] = await Promise.all([
-      fetch(new URL('/data.json', app), options),
-      fetch(new URL('/api/notes', app), options),
-      fetch(new URL('/aleph.json', app), options),
-      fetch(app, options),
-    ]);
+    // Request labels are diagnostic only; never use a client-supplied label for authorization.
+    // Sequential GETs make each check traceable independently in a restricted runner.
+    const getForCheck = (attackId, path) => fetch(new URL(path, app), {
+      ...options, method: 'GET', cache: 'no-store',
+      headers: { 'X-BB-Attack-ID': attackId },
+    });
+    const staticResponse = await getForCheck('static_note_read', '/data.json');
+    const apiResponse = await getForCheck('anonymous_api_note_read', '/api/notes');
+    const deploymentResponse = await getForCheck('deployment_identity_read', '/aleph.json');
+    const pageResponse = await getForCheck('security_header_read', '/');
     let exposed = false;
     if (staticResponse.ok) {
       try {
@@ -142,7 +146,7 @@ export async function runAttackChecks(config) {
       });
 
       // 원본 자료·토큰·메모 본문 없이 익명 단건 API의 HTTP 상태만 관측합니다.
-      const direct = await fetch(new URL('/api/notes/aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa', app), options);
+      const direct = await getForCheck('anonymous_single_note_read', '/api/notes/aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa');
       checks.push({
         attackId: 'anonymous_single_note_read',
         expected: '비인증 GET /api/notes/:id 401; 로그인 A/B 간 소유권 실측은 별도',
@@ -259,10 +263,11 @@ export async function runAttackChecks(config) {
     }
     if (config.step === 11 || config.step === 12) {
       // 설치 자료와 비로그인 기기 API만 실측합니다. 승인된 계정의 쿠키·개인 자료는 읽지 않습니다.
-      const [manifestResponse, deviceResponse] = await Promise.all([
-        fetch(new URL('/manifest.webmanifest', app), options),
-        fetch(new URL('/api/device', app), options),
-      ]);
+      const manifestResponse = await getForCheck('stage11_public_manifest', '/manifest.webmanifest');
+      const deviceResponse = await getForCheck(
+        config.step === 12 ? 'stage12_unauthenticated_operations' : 'stage11_unauthenticated_device',
+        '/api/device',
+      );
       let manifestValid = false;
       if (manifestResponse.ok) {
         try {
@@ -289,10 +294,8 @@ export async function runAttackChecks(config) {
         // 12단계: 공개 대시보드와 비로그인 요약 API를 실제 요청으로만 확인합니다.
         // 기존 stage11 기기 차단 검사는 같은 점검 항목에 보존합니다(제출 상한 20건).
         // 41종 총공세를 실행하거나 통과로 만들어 넣지 않습니다.
-        const [operationsResponse, dashboardResponse] = await Promise.all([
-          fetch(new URL('/api/operations', app), options),
-          fetch(new URL('/operations.html', app), options),
-        ]);
+        const operationsResponse = await getForCheck('stage12_unauthenticated_operations', '/api/operations');
+        const dashboardResponse = await getForCheck('stage12_unauthenticated_operations', '/operations.html');
         let operationsDenied = false;
         try {
           const data = await operationsResponse.json();
