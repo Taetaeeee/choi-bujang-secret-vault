@@ -244,16 +244,11 @@ export async function runAttackChecks(config) {
         expected: '가상 B 메모 1건 ID·소유자·내용 SHA-256 사본 일치, 다른 메모·감사 기록 보존; DB 실측 아님',
         observed: `가상 B 메모 복원 ${restoredNote}; 다른 가상 메모 ${otherCount === '미실행' ? otherCount : `${otherCount}건`}; 운영 DB 복원 미실행`,
       });
-      // 토큰 없이 POST만 보내며 자료와 정책을 절대로 수정하지 않습니다.
-      const restoreResponse = await fetch(new URL('/api/restore', app), {
-        method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000),
-        credentials: 'omit', headers: { 'content-type': 'application/json' },
-        body: '{}',
-      });
+      // 격리 심판은 GET·HEAD만 허용합니다. 복구 POST는 전송하지 않고 미실행으로 기록합니다.
       checks.push({
         attackId: 'stage10_anonymous_restore_post',
         expected: '비로그인 POST /api/restore는 복원 불가(401 또는 사본 미배포 시 503); 운영 실제 복원 미실행',
-        observed: `HTTP ${restoreResponse.status}; 비로그인 복원 불가 ${[401, 403, 503].includes(restoreResponse.status)}; 운영 데이터 복원 미실행`,
+        observed: 'not_run',
       });
     }
     if (config.step === 11 || config.step === 12) {
