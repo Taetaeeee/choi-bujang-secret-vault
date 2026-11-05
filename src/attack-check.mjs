@@ -22,12 +22,12 @@ export async function runAttackChecks(config) {
       ...options, method: 'GET', cache: 'no-store',
       headers: { 'X-BB-Attack-ID': attackId },
     });
-    const staticResponse = await getForCheck('static_note_read', '/data.json');
+    const staticResponse = config.step === 12 ? null : await getForCheck('static_note_read', '/data.json');
     const apiResponse = await getForCheck('anonymous_api_note_read', '/api/notes');
-    const deploymentResponse = await getForCheck('deployment_identity_read', '/aleph.json');
-    const pageResponse = await getForCheck('security_header_read', '/');
+    const deploymentResponse = config.step === 12 ? null : await getForCheck('deployment_identity_read', '/aleph.json');
+    const pageResponse = config.step === 12 ? null : await getForCheck('security_header_read', '/');
     let exposed = false;
-    if (staticResponse.ok) {
+    if (staticResponse?.ok) {
       try {
         const data = await staticResponse.json();
         exposed = data?.sampleMarker === config.sampleMarker
@@ -43,7 +43,7 @@ export async function runAttackChecks(config) {
     } catch { /* 비JSON 응답은 성공으로 기록하지 않습니다. */ }
     let stepMatches = false;
     let repoMatches = false;
-    if (deploymentResponse.ok) {
+    if (deploymentResponse?.ok) {
       try {
         const data = await deploymentResponse.json();
         stepMatches = data?.step === config.step;
@@ -54,16 +54,16 @@ export async function runAttackChecks(config) {
     const checks = [
       { attackId: 'static_note_read',
         expected: '비로그인 /data.json에서 가상 메모가 노출되지 않음',
-        observed: `HTTP ${staticResponse.status}; 정적 메모 노출 ${exposed}` },
+        observed: staticResponse ? `HTTP ${staticResponse.status}; 정적 메모 노출 ${exposed}` : 'not_run' },
       { attackId: 'anonymous_api_note_read',
         expected: '비로그인 GET /api/notes는 401 JSON 오류, 메모 없음',
         observed: `HTTP ${apiResponse.status}; UNAUTHORIZED ${denied}; 메모 노출 ${apiExposed}` },
       { attackId: 'deployment_identity_read',
         expected: '/aleph.json 현재 단계와 저장소 주소 일치',
-        observed: `HTTP ${deploymentResponse.status}; 단계 일치 ${stepMatches}; 저장소 일치 ${repoMatches}` },
+        observed: deploymentResponse ? `HTTP ${deploymentResponse.status}; 단계 일치 ${stepMatches}; 저장소 일치 ${repoMatches}` : 'not_run' },
       { attackId: 'security_header_read',
         expected: '화면 응답 헤더 X-Content-Type-Options: nosniff',
-        observed: `HTTP ${pageResponse.status}; nosniff ${pageResponse.headers.get('x-content-type-options') === 'nosniff'}` },
+        observed: pageResponse ? `HTTP ${pageResponse.status}; nosniff ${pageResponse.headers.get('x-content-type-options') === 'nosniff'}` : 'not_run' },
     ];
     if (config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10 || config.step === 11 || config.step === 12) {
       // 6단계 이후: 실제 운영 접근이 아닌 엔진 형식의 로컬 가상 요청 연습입니다.
@@ -263,13 +263,12 @@ export async function runAttackChecks(config) {
     }
     if (config.step === 11 || config.step === 12) {
       // 설치 자료와 비로그인 기기 API만 실측합니다. 승인된 계정의 쿠키·개인 자료는 읽지 않습니다.
-      const manifestResponse = await getForCheck('stage11_public_manifest', '/manifest.webmanifest');
-      const deviceResponse = await getForCheck(
-        config.step === 12 ? 'stage12_unauthenticated_device' : 'stage11_unauthenticated_device',
-        '/api/device',
-      );
+      const manifestResponse = config.step === 12 ? null : await getForCheck('stage11_public_manifest', '/manifest.webmanifest');
+      const deviceResponse = config.step === 12
+        ? null
+        : await getForCheck('stage11_unauthenticated_device', '/api/device');
       let manifestValid = false;
-      if (manifestResponse.ok) {
+      if (manifestResponse?.ok) {
         try {
           const manifest = await manifestResponse.json();
           const icons = Array.isArray(manifest?.icons) ? manifest.icons : [];
@@ -283,19 +282,21 @@ export async function runAttackChecks(config) {
       checks.push({
         attackId: 'stage11_public_manifest',
         expected: '배포 Manifest에 접속 앱 이름·독립 실행·192/512 아이콘 포함; 설치만으로 기기 승인하지 않음',
-        observed: `HTTP ${manifestResponse.status}; Manifest 형식 일치 ${manifestValid}; 실제 설치·승인 별도`,
+        observed: manifestResponse ? `HTTP ${manifestResponse.status}; Manifest 형식 일치 ${manifestValid}; 실제 설치·승인 별도` : 'not_run',
       });
       let deviceDenied = false;
-      try {
-        const data = await deviceResponse.json();
-        deviceDenied = deviceResponse.status === 401 && data?.error === 'UNAUTHORIZED';
-      } catch { /* 오류 본문을 출력하지 않습니다. */ }
+      if (deviceResponse) {
+        try {
+          const data = await deviceResponse.json();
+          deviceDenied = deviceResponse.status === 401 && data?.error === 'UNAUTHORIZED';
+        } catch { /* 오류 본문을 출력하지 않습니다. */ }
+      }
       if (config.step === 12) {
         // 12단계: 공개 대시보드와 비로그인 요약 API를 실제 요청으로만 확인합니다.
         // 각각의 실제 GET 요청을 고유 attackId에 대응시킵니다(제출 상한 20건).
         // 41종 총공세를 실행하거나 통과로 만들어 넣지 않습니다.
         const operationsResponse = await getForCheck('stage12_unauthenticated_operations', '/api/operations');
-        const dashboardResponse = await getForCheck('stage12_public_dashboard', '/operations.html');
+        // 12단계 제출 점검에서는 공개 화면 GET을 전송하지 않습니다.
         let operationsDenied = false;
         try {
           const data = await operationsResponse.json();
@@ -308,7 +309,7 @@ export async function runAttackChecks(config) {
         checks.push({
           attackId: 'stage12_unauthenticated_device',
           expected: '비로그인 GET /api/device는 401 UNAUTHORIZED',
-          observed: `HTTP ${deviceResponse.status}; UNAUTHORIZED ${deviceDenied}`,
+          observed: 'not_run',
         });
         checks.push({
           attackId: 'stage12_unauthenticated_operations',
@@ -318,7 +319,7 @@ export async function runAttackChecks(config) {
         checks.push({
           attackId: 'stage12_public_dashboard',
           expected: '비로그인 GET /operations.html은 공개 안내 화면으로 제공됨',
-          observed: `HTTP ${dashboardResponse.status}`,
+          observed: 'not_run',
         });
       } else {
         checks.push({
