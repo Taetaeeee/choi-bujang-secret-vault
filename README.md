@@ -472,3 +472,80 @@ node --test test/stage10-policy.test.mjs test/stage10-restore.test.mjs test/stag
 다만 서버 발급 쿠키에 기반한 기기 식별은 **하드웨어 수준 기기 증명이나 쿠키 복제 방지의 증거가 아닙니다**. 다른 기기·testB 교차 접근, 운영 메모 CRUD 전체, 외부 ZTNA 엔진과 실제 기기 승인 상태의 연동은 **직접 실측하지 않았습니다**. 로컬 테스트 및 공식 100점 판정과 별도로 구분해야 합니다.
 
 **관련 근거:** [평가 커밋](https://github.com/Taetaeeee/choi-bujang-secret-vault/commit/885cb7b8e7c4) · [배포 앱](https://choi-bujang-secret-vault-alpha-drab.vercel.app/) · `docs/STAGE11_DEVICE_APPROVAL.md` · `test/stage11-device.test.mjs` · `test/stage11-pwa.test.mjs` · `test/stage11-savepoint.test.mjs`. 실제 메모 본문·토큰·비밀키·로컬 제출 JSON은 Git에 포함하지 않았습니다.
+
+
+## 12단계 제작 3 — 탈환 작전실 재현·운영·중지·복구 안내 (2026-11-05)
+
+**재현 기준:** 제작 2까지의 검사 대상은 [커밋 `0f5a896cfd4ea472d292108e2a45722e3fcb8a6c`](https://github.com/Taetaeeee/choi-bujang-secret-vault/commit/0f5a896cfd4ea472d292108e2a45722e3fcb8a6c)입니다. 12단계 제작 3은 이 상태에 **설명만 추가**하며 기존 판정·탐지·자료실 API, 10단계 복구 사본을 변경하지 않습니다. 현재 제출 설정은 `aleph.config.json`의 **`step: 11`**입니다. 이는 12단계 최종 제출·공식 심판 통과 상태가 아닙니다.
+
+### 기능별 출처·책임 구분
+
+| 구성 | 학생 저장소에서 구현·수정한 영역 | 제공 엔진 및 검증 범위 |
+|---|---|---|
+| 접속 판정 | `src/decider.mjs`의 `RULE_IDS` 5개 및 `decide(request)` 정책, `docs/DECIDER_REQUEST.md` 계약 준수 | **ALEPH SDP 엔진 사용**. 신원·기기·경로 검증 후 계약에 맞는 요청을 판정기로 전달하는 제공 시스템. 로컬 `decider:test`는 가상 사건이며 실제 엔진 집행 증거가 아님 |
+| 이상 탐지·회수 | `src/detect.mjs`의 가명 주체별 10분 GET 집계 및 `propose_revocation` 반환 | 사건 형식은 `docs/DETECT_EVENTS.md`에 따른 실습 입력. **회수 제안과 운영 엔진의 실제 세션 회수는 별개**이며 후자는 미실측 |
+| 접속 앱·기기 승인 | `public/index.html`, `public/manifest.webmanifest`, `api/auth.js`, `api/device.js`, `src/device-approval.mjs`, `src/vault-session.mjs` | Supabase 인증·승인 테이블과 Vercel 서버 함수 사용. 실제 운영에서 동일 브라우저 승인 전 403·승인 후 200을 확인했으나 하드웨어 기기 증명은 아님 |
+| 자료실·접근 제어 | `api/notes.js`, `src/api-resource-access.mjs`의 서버 인증·승인·소유자 검사 | Supabase 학습용 자료 저장소 사용. 실제 A/B 계정의 전체 교차 접근 및 모든 CRUD를 이번 단계에서 재실측하지 않음 |
+| 탈환 작전실 | `api/operations.js`, `src/operations-summary.mjs`, `public/operations.html`, `public/operations-evidence.js`의 읽기 전용 요약과 HTTP 확인표 | 운영 API의 HTTP 상태·요청 ID·시각을 수집하되 메모 본문은 읽지 않음. **41종 총공세 판정·제공 엔진 집행 기록을 대신하지 않음** |
+| 복구 | `scripts/stage10-policy.mjs`, `scripts/stage10-restore.mjs`, `scripts/stage10-note.mjs`의 비공개 로컬 사본 검증·가상 복원 연습 | 백업 근거 커밋 `e6334b2`는 과거 로컬 정책 기준. 운영 Supabase RLS/GRANT·실제 메모·실제 세션의 복구 기능이 아님 |
+
+### 1. 설치 — 기준 커밋을 별도 폴더에서 재현
+
+Windows PowerShell과 **Node.js 22 이상**을 사용합니다. 기존 작업 폴더를 덮어쓰지 않도록 다른 디렉터리에 새로 받습니다.
+
+```powershell
+cd C:\Users\User\Projects
+git clone https://github.com/Taetaeeee/choi-bujang-secret-vault.git byteback-stage12-repro
+cd .\byteback-stage12-repro
+git switch --detach 0f5a896cfd4ea472d292108e2a45722e3fcb8a6c
+node --version
+npm.cmd install
+```
+
+기대: 설치 종료 코드 0, 의도한 `HEAD`가 `0f5a896`과 일치. 이 명령은 **로컬 원본 코드의 의존성만 설치**합니다. Vercel 환경변수·Supabase DB·운영 인증 정보나 10단계의 Git 제외 백업은 자동 복원되지 않습니다. 비밀값이 없어도 로컬 가상 판정/탐지 시험은 가능합니다.
+
+### 2. 실행 — 로컬 검증 → 실제 API 확인
+
+```powershell
+npm.cmd run decider:test
+npm.cmd run fixture:7
+npm.cmd run detect:test
+node --test test/stage12-operations.test.mjs test/stage12-evidence.test.mjs
+npm.cmd run test:package
+npm.cmd run test:r5
+npm.cmd run build -- --local
+```
+
+- **로컬 검증:** 판정기 정상 `allow`·미등록 `deny`·복합 위험 `step_up`, 탐지기 정상 `observe`·폭주 `propose_revocation`, 작전실/확인표 단위 검사를 확인합니다. 이것들은 **가상 요청 또는 코드 검사**이며 ALEPH SDP 엔진의 실시간 차단·회수 성공이 아닙니다. `npm run build -- --local`은 정적 `data.json` 제거와 로컬 빌드만 검증합니다. 이 저장소에는 `npm start`로 실행하는 독립 로컬 API 서버가 없습니다.
+- **운영 실행:** 기존 운영 주소 [자료실](https://choi-bujang-secret-vault-alpha-drab.vercel.app/)에서 로그인하고 승인된 기기인지 확인합니다. 브라우저가 지원하면 메뉴의 **앱 설치/홈 화면에 추가**로 PWA 접속 앱을 추가할 수 있습니다. 설치 자체가 자료 접근을 승인하지는 않습니다. 자료실의 **탈환 작전실 보기** 또는 [/operations.html](https://choi-bujang-secret-vault-alpha-drab.vercel.app/operations.html)로 이동합니다.
+- **안전한 실측:** 작전실에서 **서버에서 새로 확인**으로 `GET /api/operations` 응답과 카드 수치를 비교합니다. 이어 **안전한 HTTP 실측 5건 실행**을 눌러 정상 요청 200, 비로그인 금지 요청 401, 정적 메모 파일 404의 **실제 HTTP 상태·요청 ID·확인 시각·출처**를 표에 남깁니다. 서버 요청 ID 헤더가 없는 API 응답은 확인 필요입니다. 자세한 절차는 `docs/STAGE12_HTTP_EVIDENCE.md`를 따릅니다.
+- **검사된 결과의 한계:** 사용자 제공 2026-11-05 운영 화면에는 실측 일치 **5/5건**이 표시됐고, 그중 `/data.json` 404, 승인된 `/api/notes` 200, 비로그인 `/api/notes` 401의 개별 ID·시각을 대조했습니다. 나머지 두 작전실 요청의 개별 헤더는 화면 요약과 별개로 확인해야 합니다. **공식 41종 공격의 개별 실행·결과는 확인되지 않았으므로 미실행/미확인**으로 남깁니다.
+
+### 3. 중지 — 재현 작업과 운영 서비스의 범위 구분
+
+- 위의 테스트와 로컬 빌드는 실행 후 **자동 종료**합니다. 진행 중인 명령만 중단해야 한다면 해당 PowerShell에서 `Ctrl+C`를 누르며, 이것은 Vercel 운영 서비스를 중단하지 않습니다.
+- 접속 앱에서는 **로그아웃** 후 창/PWA를 닫습니다. 앱 종료·로그아웃은 Supabase의 **기기 승인 기록 자체를 취소하는 동작이 아닙니다**. 기기 승인 취소나 전체 운영 서비스 중단은 운영자의 별도 권한·절차가 필요하며, 이 문서에서 임의로 DB 상태를 변경하지 않습니다.
+- 작전실의 HTTP 확인은 읽기 전용 GET 5건만 수행합니다. 41종 공격 자동 실행, 세션 회수 집행, 복원 POST 또는 실사용 메모 수정은 중지/확인 절차에 포함하지 않습니다.
+
+### 4. 복구 — 먼저 상태·사본 검증, 임의 덮어쓰기 금지
+
+```powershell
+# 기존 원래 작업 폴더에서, 수정·복원 없이 상태만 확인
+git status --short
+git diff --stat
+git log -3 --oneline
+node scripts/stage10-policy.mjs verify
+node scripts/stage10-restore.mjs retest
+node scripts/stage10-note.mjs verify
+```
+
+1. **첫 오류가 나면 거기서 중단**하고 변경 파일·백업 유무·해시·대상 범위를 먼저 확인합니다. 10단계의 로컬 `artifacts/stage10/` 사본은 Git 제외이므로 **새로 Clone한 폴더에는 없습니다**. 없는 사본을 재생성하거나 백업을 덮어써 성공으로 표시하지 않습니다.
+2. 검증된 기존 사본이 있는 경우에만 위 **읽기/재시험 명령**으로 과거 백업 SHA-256, 복원된 가상 정책·B 메모, 다른 가상 메모의 보존을 확인합니다. 이미 복원 완료한 사본에는 `backup`, `simulate`, `restore --confirm`, `prepare`, `post`를 재실행하지 않습니다.
+3. 코드·배포 장애가 있으면 먼저 Git 변경 내역 및 마지막으로 정상 확인된 커밋과 운영 HTTP 응답을 대조합니다. 운영 Vercel 이전 배포로의 재배포/롤백은 별도 승인과 배포 설정 검토 후 **운영자가 수행**해야 합니다. **코드 롤백은 Supabase 운영 DB의 정책·자료 복원을 뜻하지 않습니다.** `git reset --hard`로 다른 작업을 삭제하지 않습니다.
+4. 복구 확인 후에는 가상 판정기 테스트와 승인 계정 HTTP 200·비인증 HTTP 401·정적 메모 HTTP 404를 다시 관측하고 요청 ID·시각을 별도로 기록합니다. 실제로 재실행하지 않은 것은 **미실행**으로 남깁니다.
+
+### 비밀값·증거 포장 제외
+
+- Vercel의 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `VAULT_SESSION_KEY`는 **설정 이름만 문서화**합니다. 실제 값은 권한 있는 운영자가 Vercel **Settings → Environment Variables**의 비밀 입력란에 직접 관리합니다. Supabase 관리자 SQL이나 인증 토큰·쿠키를 README, 화면 기록, 로그, 제출 JSON에 붙이지 않습니다.
+- `.env`, `.env.*`, `artifacts/`, `bundle-notes.json`, `public/aleph.json`은 `.gitignore` 대상입니다. `artifacts/submission.json`도 Git에 포함하지 않습니다. **실제 개인정보, 가상 메모 본문, 서버 전용 키, 승인 쿠키·기기 지문, 계정 식별자**를 제출 묶음이나 포트폴리오 자료에 포장하지 않습니다.
+- `aleph.config.json`의 심판 서버 `judgeIssuer`, 기존 `identityProvider`, `allowedRoutes`, 원본 API 주소는 임의 변경하지 않습니다. **12단계 제출 전 확인**에서 설정·배포 단계·새 Clone·`npm run bundle`을 별도 점검합니다. 이 문서 추가만으로 `step: 12`, 41종 방어 성공 또는 공식 12단계 점수를 주장하지 않습니다.
