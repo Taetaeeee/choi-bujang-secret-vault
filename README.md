@@ -1,6 +1,6 @@
 # BYTE BACK 방어전 시작 틀 R5
 
-이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **11**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
+이 저장소는 BYTE BACK 방어전 R5의 1단계에서 만들어졌고, 현재 `aleph.config.json`의 단계는 **12**입니다. 처음 공개했던 메모 네 건은 모두 실습용 가상 자료이며, 현재는 학습용 Supabase DB로 옮기고 최신 소스의 정적 JSON에서 제거했습니다. 실제 학생 자료, 토큰, 비밀키를 넣지 마세요.
 
 ## 1단계 기록 — 학생이 했던 세 걸음
 
@@ -14,7 +14,7 @@
 
 `vercel.json`은 정적 결과물 `public`을 배포합니다. 빌드 명령 `npm run build`는 Vercel이 제공하는 GitHub 저장소 소유자·이름, 커밋 SHA, 배포 URL을 검증하고 `public/aleph.json`을 생성합니다. 이 값이 없으면 빌드가 실패하므로, 성공한 것처럼 빈 주소를 내보내지 않습니다. `aleph.json`의 내용만으로 저장소 소유권이나 방어 성공을 인정하지 않습니다. 심판이 공개 저장소의 실제 커밋과 배포된 자료를 따로 대조해야 합니다.
 
-`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 11입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
+`aleph.config.json`의 `repoUrl`과 `publicAppUrl`은 현재 본인 GitHub 저장소 및 운영 Vercel 주소로 설정되어 있고, `step`은 12입니다. 제출 묶음 실행 전 Git 원격·실제 배포와 다시 대조합니다.
 
 로컬에서 정적 화면/빌드만 확인할 때는 `npm run build -- --local`을 사용합니다. 로컬 실행은 Vercel 배포나 심판 접수를 증명하지 않습니다. `src/attack-check.mjs`는 5단계의 공개 경로 및 Supabase 원본 API에 직접 비인증 요청을 보내 결과를 기록합니다. 이 학생 자기 점검은 공식 심판 판정이 아닙니다.
 
@@ -476,7 +476,7 @@ node --test test/stage10-policy.test.mjs test/stage10-restore.test.mjs test/stag
 
 ## 12단계 제작 3 — 탈환 작전실 재현·운영·중지·복구 안내 (2026-11-05)
 
-**재현 기준:** 제작 2까지의 검사 대상은 [커밋 `0f5a896cfd4ea472d292108e2a45722e3fcb8a6c`](https://github.com/Taetaeeee/choi-bujang-secret-vault/commit/0f5a896cfd4ea472d292108e2a45722e3fcb8a6c)입니다. 12단계 제작 3은 이 상태에 **설명만 추가**하며 기존 판정·탐지·자료실 API, 10단계 복구 사본을 변경하지 않습니다. 현재 제출 설정은 `aleph.config.json`의 **`step: 11`**입니다. 이는 12단계 최종 제출·공식 심판 통과 상태가 아닙니다.
+**재현 기준:** 제작 2까지의 검사 대상은 [커밋 `0f5a896cfd4ea472d292108e2a45722e3fcb8a6c`](https://github.com/Taetaeeee/choi-bujang-secret-vault/commit/0f5a896cfd4ea472d292108e2a45722e3fcb8a6c)입니다. 12단계 제작 3은 이 상태에 **설명만 추가**하며 기존 판정·탐지·자료실 API, 10단계 복구 사본을 변경하지 않습니다. 이 문서 작성 당시 설정은 `aleph.config.json`의 **`step: 11`**이었습니다. 12단계 저장점에서 `step: 12`로 올리지만 이는 공식 심판 통과 증거가 아닙니다.
 
 ### 기능별 출처·책임 구분
 
@@ -549,3 +549,13 @@ node scripts/stage10-note.mjs verify
 - Vercel의 `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `VAULT_SESSION_KEY`는 **설정 이름만 문서화**합니다. 실제 값은 권한 있는 운영자가 Vercel **Settings → Environment Variables**의 비밀 입력란에 직접 관리합니다. Supabase 관리자 SQL이나 인증 토큰·쿠키를 README, 화면 기록, 로그, 제출 JSON에 붙이지 않습니다.
 - `.env`, `.env.*`, `artifacts/`, `bundle-notes.json`, `public/aleph.json`은 `.gitignore` 대상입니다. `artifacts/submission.json`도 Git에 포함하지 않습니다. **실제 개인정보, 가상 메모 본문, 서버 전용 키, 승인 쿠키·기기 지문, 계정 식별자**를 제출 묶음이나 포트폴리오 자료에 포장하지 않습니다.
 - `aleph.config.json`의 심판 서버 `judgeIssuer`, 기존 `identityProvider`, `allowedRoutes`, 원본 API 주소는 임의 변경하지 않습니다. **12단계 제출 전 확인**에서 설정·배포 단계·새 Clone·`npm run bundle`을 별도 점검합니다. 이 문서 추가만으로 `step: 12`, 41종 방어 성공 또는 공식 12단계 점수를 주장하지 않습니다.
+
+## 12단계 저장점 — 탈환 작전실·실측 근거·운영 재현 (2026-11-05)
+
+- **기준과 범위:** 제작 1~3 마지막 구현·문서화 커밋은 `c52af319240c895ebab291874781a3cbe4f2ac7e`입니다. 이번 저장점은 `aleph.config.json`을 **`step: 12`**로 올리고, 기존 1~11단계 점검·비공개 복구 검증과 `npm run bundle`을 12단계에서도 실행하도록 조정합니다. 이전 심판 평가 커밋과 과거 기록은 변경하지 않습니다.
+- **학생 구현:** `src/decider.mjs`의 판정 규칙 5개, `src/detect.mjs`의 가상 조회 폭주 탐지, 서버 인증·기기 승인과 개인 자료실, PWA 접속 앱, `/api/operations`의 읽기 전용 요약 및 `public/operations-evidence.js`의 안전한 HTTP 확인표를 보존합니다. `src/attack-check.mjs`는 1~11단계 점검을 포함하여 **최대 20개 항목**만 제출하며, 12단계에서는 비로그인 기기 API·작전실 API·공개 화면의 실제 HTTP 응답을 확인합니다.
+- **제공 엔진과 차이:** **ALEPH SDP 엔진 사용**. 엔진의 신원·기기·경로 검증, 실제 세션 회수 집행, 공식 41종 총공세 판정은 이 학생 저장소의 로컬 `decider:test`, `detect:test`, HTTP 5건 검사나 요약 화면과 구별합니다. 탐지의 `propose_revocation`은 집행이 아닌 **제안**입니다.
+- **직접 관측한 운영 결과:** 2026-11-05 사용자 화면에서 안전한 GET 5건에 대해 **실측 일치 5/5건**이 표시됐습니다. 제공된 개별 기록으로는 정적 `/data.json` **404**, 승인된 `/api/notes` **200**, 쿠키 없는 `/api/notes` **401**과 각각의 ID·시각을 대조했습니다. 작전실 API 2건은 화면의 5/5 요약만 확인했으므로 개별 헤더 재검증은 별도입니다. 다른 단계별 운영 집행 및 **41종 공격 각각의 실행·방어 결과는 확인되지 않았으며 통과로 계산하지 않습니다**.
+- **백업 보존:** 10단계 기존 비공개 검증 사본·가상 B 메모·감사 이력은 재생성하거나 덮어쓰지 않습니다. `src/stage10-policy.mjs`는 기존 검증된 사본을 기준으로 **기존 10·11단계에 12단계 번호를 추가 허용**하되, `allowedRoutes`, `judgeIssuer`, `identityProvider`, `originalApiUrl`, `restoreRoute`, 원본 판정 규칙의 예기치 않은 변경은 계속 거부합니다. 운영 Supabase DB 복구는 수행하지 않습니다.
+- **설치 및 재시험:** 공개 저장소를 별도 폴더로 Clone해 Node.js 22 이상에서 `npm install`을 실행합니다. 이어 `npm run decider:test`, `npm run fixture:7`, `npm run detect:test`, `node --test test/stage11-savepoint.test.mjs test/stage12-savepoint.test.mjs test/stage12-evidence.test.mjs test/stage12-operations.test.mjs`, `npm run test:package`, `npm run test:r5`, `npm run build -- --local`을 검사합니다. 원래 작업 폴더에서는 기존 비공개 사본에 한하여 `node scripts/stage10-policy.mjs verify`, `node scripts/stage10-restore.mjs retest`, `node scripts/stage10-note.mjs verify`를 **재실행 없이 검증 명령만** 사용할 수 있습니다. 명령이 실제로 통과하기 전에는 통과했다고 기록하지 않습니다.
+- **배포·제출 순서:** 이번 저장점 커밋 후 Vercel의 `/aleph.json`에서 **`step: 12` 및 배포 커밋 일치**를 확인하고, Git 작업 폴더가 깨끗하고 `bundle-notes.json`에 이번 단계의 설명이 있는 상태에서만 `npm run bundle`을 실행합니다. `artifacts/submission.json`, `bundle-notes.json`, `.env` 및 운영 비밀값은 Git에 올리지 않습니다. 묶음의 `attackAttempts`는 **학생 자기 점검 20건 이내**이고 공식 41종 공격 통과 결과가 아닙니다.

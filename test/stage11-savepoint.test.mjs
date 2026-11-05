@@ -40,7 +40,7 @@ test('11단계 설정도 기존 10단계 정책 백업의 해시·경로 제한�
 });
 
 test('11단계 직접 점검은 PWA와 비로그인 기기 API를 읽고 지난 18개 점검을 유지한다', async () => {
-  assert.equal(config.step, 11);
+  assert.ok(config.step >= 11);
   const beforeKey = process.env.SUPABASE_PUBLISHABLE_KEY;
   const oldFetch = globalThis.fetch;
   process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_only_mock';
@@ -65,7 +65,7 @@ test('11단계 직접 점검은 PWA와 비로그인 기기 API를 읽고 지난 
     throw new Error('unexpected_mock_url');
   };
   try {
-    const attempts = await runAttackChecks(config);
+    const attempts = await runAttackChecks({ ...config, step: 11 });
     assert.equal(attempts.length, 20); // bundle 상한 20건
     assert.equal(new Set(attempts.map(x => x.attackId)).size, 20);
     assert.ok(attempts.some(x => x.attackId === 'stage10_policy_backup_local'));
