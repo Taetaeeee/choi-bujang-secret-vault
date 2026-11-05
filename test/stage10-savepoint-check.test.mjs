@@ -36,9 +36,9 @@ test('10단계 제출 점검은 기존 기록을 보존하고 로컬/실제 HTTP
       'stage10_virtual_note_local', 'stage10_anonymous_restore_post']) {
       assert.ok(output.some(item => item.attackId === name));
     }
-    assert.ok(requests.some(([method, path]) => method === 'POST' && path === '/api/restore'));
+    assert.ok(!requests.some(([method, path]) => method === 'POST' && path === '/api/restore'));
     assert.match(output.find(item => item.attackId === 'stage10_anonymous_restore_post').observed,
-      /HTTP 503/);
+      /^not_run$/);
     assert.match(output.find(item => item.attackId === 'stage10_virtual_note_local').observed,
       /운영 DB 복원 미실행/);
   } finally {
