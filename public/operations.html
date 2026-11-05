@@ -23,6 +23,13 @@
     .status { padding: 10px 14px; border: 1px solid #b39b64; border-radius: 9px; background: #382f22; color: #ffe5af; }
     .good { border-color: #438777; background: #1d4436; color: #b6f0ce; }
     pre { margin: 0; padding: 16px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: 8px; background: #111e2f; color: #d6e2f3; font-size: 12px; line-height: 1.65; }
+    .evidence { margin-top: 24px; }
+    .evidence button { margin: 6px 9px 12px 0; }
+    .table-wrap { overflow-x: auto; border: 1px solid #526a80; border-radius: 10px; }
+    .evidence table { width: 100%; border-collapse: collapse; min-width: 980px; font-size: 13px; }
+    .evidence th, .evidence td { text-align: left; padding: 11px; vertical-align: top; border-bottom: 1px solid #384e62; overflow-wrap: anywhere; }
+    .evidence th { color: #a3e2ed; background: #142237; }
+    .evidence td:nth-child(8), .evidence td:nth-child(9) { max-width: 220px; font-family: ui-monospace, monospace; font-size: 11px; }
   </style>
 </head>
 <body>
@@ -63,6 +70,21 @@
       <h2 id="record-heading">서버 기록 (개인정보 제외)</h2>
       <p>아래 값은 위 카드와 동일한 <code>GET /api/operations</code> 응답입니다. 신원, 메모 본문, 토큰, 쿠키 및 서버 비밀값은 기록하지 않습니다. <code>null</code>은 0건이 아닌 미확인입니다.</p>
       <pre id="server-record">아직 서버 응답을 받지 않았습니다.</pre>
+    </section>
+    <section class="record evidence" aria-labelledby="evidence-heading">
+      <h2 id="evidence-heading">1~11단계 정상·금지 요청 실측 확인표</h2>
+      <p>아래 표는 단계별 점검 절차입니다. 버튼으로 실행하는 5건은 <strong>읽기 전용 HTTP 요청</strong>이며, 메모 본문이나 로그인 정보는 기록하지 않습니다. 별도 운영 환경이 필요한 검사는 요청하지 않고 <strong>미실행</strong>으로 남깁니다.</p>
+      <button id="evidence-run" type="button">안전한 HTTP 실측 5건 실행</button>
+      <button id="evidence-copy" type="button">개인정보 제외 기록 JSON 복사</button>
+      <p id="evidence-status" class="meta" role="status" aria-live="polite">아직 요청하지 않았습니다. 모든 결과는 미실행입니다.</p>
+      <div class="table-wrap">
+        <table aria-label="1~11단계 정상 금지 요청 점검 결과">
+          <thead><tr><th>단계</th><th>유형</th><th>점검 상황</th><th>요청</th><th>기대 결과</th><th>실제 API 결과</th><th>확인 상태</th><th>요청 ID·출처</th><th>확인 시각·출처</th></tr></thead>
+          <tbody id="evidence-body"></tbody>
+        </table>
+      </div>
+      <p class="meta">확인 방법: F12 → Network에서 해당 요청의 HTTP 상태와 <code>X-Request-ID</code>·<code>X-Observed-At</code> 응답 헤더를 비교하세요. 정적 파일 검사는 서버 헤더 대신 브라우저가 요청에 보낸 <code>X-BB-Check-ID</code>를 사용합니다. 응답 본문과 비밀값은 보관하지 않습니다.</p>
+      <p class="meta"><strong>41종 총공세:</strong> 이 버튼으로 실행하지 않습니다. 공식 41종 공격의 개별 실행·방어 결과는 이 표와 별도이며, 증거를 수집하기 전에는 통과로 표시하지 않습니다.</p>
     </section>
   </main>
   <script type="module">
@@ -121,5 +143,6 @@
     refresh.addEventListener('click', loadOperations);
     loadOperations();
   </script>
+  <script type="module" src="/operations-evidence.js"></script>
 </body>
 </html>

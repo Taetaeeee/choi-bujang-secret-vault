@@ -37,6 +37,9 @@ export async function notesHandler(request, response, {
   response.setHeader('Cache-Control', 'no-store');
   response.setHeader('Vary', 'Cookie');
   response.setHeader('X-Content-Type-Options', 'nosniff');
+  // 12단계 제작 2: 실제 응답과 가린 확인표를 대조하는 서버 발급 요청 메타데이터.
+  response.setHeader('X-Request-ID', randomUUID());
+  response.setHeader('X-Observed-At', new Date().toISOString());
 
   // Vercel rewrite: /api/notes/:id -> /api/notes?noteId=:id
   const rawId = request.query?.noteId;
