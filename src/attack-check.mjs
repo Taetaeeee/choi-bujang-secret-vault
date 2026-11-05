@@ -341,6 +341,26 @@ export async function runAttackChecks(config) {
         });
       }
     }
+    if (config.step === 12) {
+      // 심판 요청 로그와 대조하는 12단계 증거: HTTP 요청이 없는 로컬 검사만 미실행으로 표시합니다.
+      // 로컬 판정·탐지 또는 비공개 사본 결과를 운영 HTTP 실측으로 주장하지 않습니다.
+      const localOnlyAttackIds = new Set([
+        'device_registration_local_fixture',
+        'step_up_local_fixture',
+        'untrusted_context_local_fixture',
+        'zone_policy_local_fixture',
+        'resource_id_local_fixture',
+        'api_owner_local_fixture',
+        'burst_read_threshold_local_fixture',
+        'burst_read_normal_local_fixture',
+        'stage10_policy_backup_local',
+        'stage10_restored_policy_local',
+        'stage10_virtual_note_local',
+      ]);
+      for (const check of checks) {
+        if (localOnlyAttackIds.has(check.attackId)) check.observed = 'not_run';
+      }
+    }
     return checks;
   }
   if (config.step === 2) {
