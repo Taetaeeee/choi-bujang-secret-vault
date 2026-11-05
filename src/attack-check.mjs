@@ -185,24 +185,28 @@ export async function runAttackChecks(config) {
     if (config.step === 10 || config.step === 11 || config.step === 12) {
       // 10단계: 로컬 사본이 실제로 있을 때만 검증하고, 없는 환경에서는 미실행을 기록합니다.
       // 검증된 가상 메모·감사 내용, 토큰 또는 사용자의 개인 자료는 출력하지 않습니다.
-      const { resolve } = await import('node:path');
+      const { resolve, join } = await import('node:path');
       const { fileURLToPath } = await import('node:url');
       const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-      const { verifyPolicyBackup, requireUntouchedSources, backupPaths } =
-        await import('./stage10-policy.mjs');
-      const { retestRestoredPolicy } = await import('./stage10-restore.mjs');
-      const { verifyRestoredVirtualBNote } = await import('./stage10-note-restore.mjs');
-      const { readFileSync } = await import('node:fs');
+      const { existsSync, readFileSync } = await import('node:fs');
       const { createHash } = await import('node:crypto');
       const checksum = bytes => createHash('sha256').update(bytes).digest('hex');
       let manifest;
       let verified = false;
-      try {
-        const result = verifyPolicyBackup(root);
-        manifest = result.manifest;
-        requireUntouchedSources(root, manifest);
-        verified = true;
-      } catch { /* 누락·변조는 검사 성공으로 기록하지 않습니다. */ }
+      let backupPaths;
+      // 격리 실행에는 비공개 백업이 없습니다. 사본이 없으면 로컬 검증 모듈을 가져오지 않습니다.
+      const hasLocalBackup = existsSync(join(root, 'artifacts/stage10/verified-policy.json'))
+        && existsSync(join(root, 'artifacts/stage10/verified-policy.sha256'));
+      if (hasLocalBackup) {
+        try {
+          const policy = await import('./stage10-policy.mjs');
+          const result = policy.verifyPolicyBackup(root);
+          manifest = result.manifest;
+          policy.requireUntouchedSources(root, manifest);
+          backupPaths = policy.backupPaths;
+          verified = true;
+        } catch { /* 모듈 로드·검증 실패는 성공으로 처리하지 않습니다. */ }
+      }
       checks.push({
         attackId: 'stage10_policy_backup_local',
         expected: '로컬 사전 백업·SHA-256 일치, 기존 규칙·허용 경로·README DB 기록 확인; 운영 RLS 미검증',
@@ -214,6 +218,7 @@ export async function runAttackChecks(config) {
       let access = '미실행';
       if (verified) {
         try {
+          const { retestRestoredPolicy } = await import('./stage10-restore.mjs');
           const { drill } = backupPaths(root);
           restoredPolicy = checksum(readFileSync(drill)) === manifest.decider.sha256;
           if (restoredPolicy) {
@@ -232,6 +237,7 @@ export async function runAttackChecks(config) {
       let otherCount = '미실행';
       if (verified) {
         try {
+          const { verifyRestoredVirtualBNote } = await import('./stage10-note-restore.mjs');
           const result = verifyRestoredVirtualBNote(root);
           restoredNote = result.id === 'bbbbbbbb-2222-4222-8222-000000000010'
             && result.owner === 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb'
