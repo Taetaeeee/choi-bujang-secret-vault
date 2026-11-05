@@ -326,18 +326,20 @@ export async function runAttackChecks(config) {
         throw new Error('originalApiUrl의 HTTPS 원본 자료 경로를 확인해 주세요.');
       }
       const publishable = process.env.SUPABASE_PUBLISHABLE_KEY;
+      const expected = 'anon 공개 키로 원본 메모 API에 직접 요청 시 401 또는 403으로 거부됨';
       if (typeof publishable !== 'string' || !/^sb_publishable_[A-Za-z0-9_-]+$/u.test(publishable)) {
-        throw new Error('5단계 직접 점검에 사용할 Supabase 공개 키를 찾지 못했습니다.');
+        // 키가 없으면 원본 API를 요청하지 않습니다. 받은 상태 코드를 만들어 내지 않습니다.
+        checks.push({ attackId: 'direct_original_api_read', expected, observed: 'not_run' });
+      } else {
+        const originalResponse = await fetch(original, {
+          redirect: 'error', signal: AbortSignal.timeout(10000),
+          headers: { apikey: publishable },
+        });
+        checks.push({
+          attackId: 'direct_original_api_read', expected,
+          observed: `HTTP ${originalResponse.status}; 직접 접근 차단 ${[401, 403].includes(originalResponse.status)}`,
+        });
       }
-      const originalResponse = await fetch(original, {
-        redirect: 'error', signal: AbortSignal.timeout(10000),
-        headers: { apikey: publishable },
-      });
-      checks.push({
-        attackId: 'direct_original_api_read',
-        expected: 'anon 공개 키로 원본 메모 API에 직접 요청 시 401 또는 403으로 거부됨',
-        observed: `HTTP ${originalResponse.status}; 직접 접근 차단 ${[401, 403].includes(originalResponse.status)}`,
-      });
     }
     return checks;
   }
