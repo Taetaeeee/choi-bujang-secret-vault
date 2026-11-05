@@ -46,7 +46,8 @@ test('12단계 제출은 20건 이내 실제·가상 점검을 구분하고 공�
   const requests = [];
   globalThis.fetch = async (input, options = {}) => {
     const url = new URL(String(input));
-    requests.push([options.method ?? 'GET', url.pathname]);
+    requests.push([options.method ?? 'GET', url.pathname,
+      new Headers(options.headers).get('X-BB-Attack-ID')]);
     if (url.pathname === '/aleph.json') return Response.json({ step: 12, repoUrl: config.repoUrl });
     if (url.pathname === '/data.json') return new Response('', { status: 404 });
     if (url.pathname === '/') return new Response('fixture', {
@@ -74,15 +75,33 @@ test('12단계 제출은 20건 이내 실제·가상 점검을 구분하고 공�
     assert.equal(new Set(results.map(item => item.attackId)).size, 20);
     const operations = results.find(item => item.attackId === 'stage12_unauthenticated_operations');
     assert.ok(operations);
-    assert.match(operations.observed, /작전실 API HTTP 401\/거부 true\/헤더 true/u);
-    assert.match(operations.observed, /화면 HTTP 200; 41종 미실행/u);
+    assert.match(operations.observed, /HTTP 401; UNAUTHORIZED true; 서버 요청 ID\/시각 true/u);
+    assert.match(results.find(item => item.attackId === 'stage12_unauthenticated_device').observed,
+      /HTTP 401; UNAUTHORIZED true/u);
+    assert.match(results.find(item => item.attackId === 'stage12_public_dashboard').observed,
+      /^HTTP 200$/u);
     assert.ok(results.some(item => item.attackId === 'stage11_public_manifest'));
     assert.ok(results.some(item => item.attackId === 'stage10_policy_backup_local'));
     assert.ok(results.some(item => item.attackId === 'device_registration_local_fixture'));
     assert.ok(results.every(item => Object.keys(item).sort().join(',') === 'attackId,expected,observed'
       && item.expected.length <= 300 && item.observed.length <= 300));
-    assert.ok(requests.some(([method, path]) => method === 'GET' && path === '/api/operations'));
-    assert.ok(requests.some(([method, path]) => method === 'GET' && path === '/operations.html'));
+    // No HTTP response may be claimed under a reused/missing request check ID.
+    assert.deepEqual(requests.map(([method, path, attackId]) => {
+      assert.equal(method, 'GET');
+      assert.ok(attackId, `missing attackId on ${path}`);
+      return [path, attackId];
+    }), [
+      ['/data.json', 'static_note_read'],
+      ['/api/notes', 'anonymous_api_note_read'],
+      ['/aleph.json', 'deployment_identity_read'],
+      ['/', 'security_header_read'],
+      ['/api/notes/aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa', 'anonymous_single_note_read'],
+      ['/manifest.webmanifest', 'stage11_public_manifest'],
+      ['/api/device', 'stage12_unauthenticated_device'],
+      ['/api/operations', 'stage12_unauthenticated_operations'],
+      ['/operations.html', 'stage12_public_dashboard'],
+      ['/rest/v1/vault_user_notes', 'direct_original_api_read'],
+    ]);
     assert.ok(!results.some(item => /41종.*통과/u.test(item.observed)));
   } finally {
     globalThis.fetch = oldFetch;

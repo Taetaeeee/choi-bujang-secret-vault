@@ -265,7 +265,7 @@ export async function runAttackChecks(config) {
       // 설치 자료와 비로그인 기기 API만 실측합니다. 승인된 계정의 쿠키·개인 자료는 읽지 않습니다.
       const manifestResponse = await getForCheck('stage11_public_manifest', '/manifest.webmanifest');
       const deviceResponse = await getForCheck(
-        config.step === 12 ? 'stage12_unauthenticated_operations' : 'stage11_unauthenticated_device',
+        config.step === 12 ? 'stage12_unauthenticated_device' : 'stage11_unauthenticated_device',
         '/api/device',
       );
       let manifestValid = false;
@@ -292,10 +292,10 @@ export async function runAttackChecks(config) {
       } catch { /* 오류 본문을 출력하지 않습니다. */ }
       if (config.step === 12) {
         // 12단계: 공개 대시보드와 비로그인 요약 API를 실제 요청으로만 확인합니다.
-        // 기존 stage11 기기 차단 검사는 같은 점검 항목에 보존합니다(제출 상한 20건).
+        // 각각의 실제 GET 요청을 고유 attackId에 대응시킵니다(제출 상한 20건).
         // 41종 총공세를 실행하거나 통과로 만들어 넣지 않습니다.
         const operationsResponse = await getForCheck('stage12_unauthenticated_operations', '/api/operations');
-        const dashboardResponse = await getForCheck('stage12_unauthenticated_operations', '/operations.html');
+        const dashboardResponse = await getForCheck('stage12_public_dashboard', '/operations.html');
         let operationsDenied = false;
         try {
           const data = await operationsResponse.json();
@@ -306,9 +306,19 @@ export async function runAttackChecks(config) {
         const hasHeaders = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu.test(requestId ?? '')
           && typeof observedAt === 'string' && Number.isFinite(Date.parse(observedAt));
         checks.push({
+          attackId: 'stage12_unauthenticated_device',
+          expected: '비로그인 GET /api/device는 401 UNAUTHORIZED',
+          observed: `HTTP ${deviceResponse.status}; UNAUTHORIZED ${deviceDenied}`,
+        });
+        checks.push({
           attackId: 'stage12_unauthenticated_operations',
-          expected: '비로그인 기기 API 401; 비로그인 작전실 API 401·요청 헤더 기록; 공개 화면 200; 41종은 별도',
-          observed: `기기 HTTP ${deviceResponse.status}/거부 ${deviceDenied}; 작전실 API HTTP ${operationsResponse.status}/거부 ${operationsDenied}/헤더 ${hasHeaders}; 화면 HTTP ${dashboardResponse.status}; 41종 미실행`,
+          expected: '비로그인 GET /api/operations는 401 UNAUTHORIZED; 서버 요청 ID·시각 확인',
+          observed: `HTTP ${operationsResponse.status}; UNAUTHORIZED ${operationsDenied}; 서버 요청 ID/시각 ${hasHeaders}`,
+        });
+        checks.push({
+          attackId: 'stage12_public_dashboard',
+          expected: '비로그인 GET /operations.html은 공개 안내 화면으로 제공됨',
+          observed: `HTTP ${dashboardResponse.status}`,
         });
       } else {
         checks.push({
@@ -335,8 +345,9 @@ export async function runAttackChecks(config) {
         checks.push({ attackId: 'direct_original_api_read', expected, observed: 'not_run' });
       } else {
         const originalResponse = await fetch(original, {
-          redirect: 'error', signal: AbortSignal.timeout(10000),
-          headers: { apikey: publishable },
+          method: 'GET', redirect: 'error', signal: AbortSignal.timeout(10000),
+          credentials: 'omit',
+          headers: { apikey: publishable, 'X-BB-Attack-ID': 'direct_original_api_read' },
         });
         checks.push({
           attackId: 'direct_original_api_read', expected,
@@ -363,6 +374,13 @@ export async function runAttackChecks(config) {
       for (const check of checks) {
         if (localOnlyAttackIds.has(check.attackId)) check.observed = 'not_run';
       }
+      // 12단계 제출 한도는 20건입니다. HTTP 미실행 로컬 복구 상세 2건만 제외하고
+      // 비로그인 device/operations/dashboard 각각의 실제 HTTP 응답을 따로 기록합니다.
+      const omittedLocalIds = new Set([
+        'stage10_restored_policy_local',
+        'stage10_virtual_note_local',
+      ]);
+      return checks.filter(check => !omittedLocalIds.has(check.attackId));
     }
     return checks;
   }
