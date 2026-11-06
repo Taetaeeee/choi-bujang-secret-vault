@@ -559,3 +559,10 @@ node scripts/stage10-note.mjs verify
 - **백업 보존:** 10단계 기존 비공개 검증 사본·가상 B 메모·감사 이력은 재생성하거나 덮어쓰지 않습니다. `src/stage10-policy.mjs`는 기존 검증된 사본을 기준으로 **기존 10·11단계에 12단계 번호를 추가 허용**하되, `allowedRoutes`, `judgeIssuer`, `identityProvider`, `originalApiUrl`, `restoreRoute`, 원본 판정 규칙의 예기치 않은 변경은 계속 거부합니다. 운영 Supabase DB 복구는 수행하지 않습니다.
 - **설치 및 재시험:** 공개 저장소를 별도 폴더로 Clone해 Node.js 22 이상에서 `npm install`을 실행합니다. 이어 `npm run decider:test`, `npm run fixture:7`, `npm run detect:test`, `node --test test/stage11-savepoint.test.mjs test/stage12-savepoint.test.mjs test/stage12-evidence.test.mjs test/stage12-operations.test.mjs`, `npm run test:package`, `npm run test:r5`, `npm run build -- --local`을 검사합니다. 원래 작업 폴더에서는 기존 비공개 사본에 한하여 `node scripts/stage10-policy.mjs verify`, `node scripts/stage10-restore.mjs retest`, `node scripts/stage10-note.mjs verify`를 **재실행 없이 검증 명령만** 사용할 수 있습니다. 명령이 실제로 통과하기 전에는 통과했다고 기록하지 않습니다.
 - **배포·제출 순서:** 이번 저장점 커밋 후 Vercel의 `/aleph.json`에서 **`step: 12` 및 배포 커밋 일치**를 확인하고, Git 작업 폴더가 깨끗하고 `bundle-notes.json`에 이번 단계의 설명이 있는 상태에서만 `npm run bundle`을 실행합니다. `artifacts/submission.json`, `bundle-notes.json`, `.env` 및 운영 비밀값은 Git에 올리지 않습니다. 묶음의 `attackAttempts`는 **학생 자기 점검 20건 이내**이고 공식 41종 공격 통과 결과가 아닙니다.
+
+## 보너스 xdr-03 저장점 — 알려진 취약점 악용 탐지 (2026-11-06)
+
+- **범위:** CVE-2021-44228 / MITRE ATT&CK T1190 패턴 3개, 독립 `decide(alert)`, 임시 거부 규칙·알림 기록 연습을 보존합니다. 기존 ZTNA 판정기와 12단계 제출 코드는 변경하지 않습니다.
+- **저장점 재검증:** `npm.cmd run xdr:run -- known-cve`로 교육용 경보 24건을 재판정한 결과 `xdr/known-cve/result.json`의 `counts`는 **block 8 · alert 8 · record 8**이며, 정상 경보 `kc-17`~`kc-24`의 block은 **0건**입니다. 기존 제작 1~4의 17/17 로컬 테스트는 앞선 별도 실행 결과입니다.
+- **재현:** Windows PowerShell에서 `npm.cmd run xdr:run -- known-cve`, `Get-Content xdr/known-cve/result.json -Raw -Encoding UTF8`을 실행합니다. 결과가 기존과 같으면 재실행 후 파일 내용 차이가 없어도 정상입니다.
+- **한계:** `block`은 교육용 경보의 분류 결과입니다. `respond.mjs`의 임시 거부 규칙은 `staged_only`이며 실제 운영 ZTNA 집행이나 공식 심판 점수와 다릅니다. 비밀값·`xdr/alerts.log`·`deny-rules.json`·`artifacts/submission.json`은 커밋하지 않습니다.
