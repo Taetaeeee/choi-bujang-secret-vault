@@ -1,7 +1,9 @@
 # XDR-04 | 지속성 공격 탐지
 
-**작업 범위:** 제작 1 — Wazuh 경보 읽기 · 제작 2 — MITRE ATT&CK 패턴 · 제작 3 — 독립 판단 · 제작 4 — 임시 거부 후보·알림 연결 · 제작 5 — 재판정·오차단 확인 (2026-11-07)  
-**기록 출처:** [XDR 입력 계약](../../../xdr/README.md), [모의 Wazuh 경보](../../../xdr/fixtures/persistence.json), 제작 1~5 소스·재실행 결과, 사용자 제공 공식 심판 판정 (평가 커밋 [`b4a69c2`](https://github.com/Taetaeeee/choi-bujang-secret-vault/commit/b4a69c27248d61b387b1a5be17bb1278e8ca14d1))  
+**작업 범위:** 제작 1 — Wazuh 경보 읽기 · 제작 2 — MITRE ATT&CK 패턴 · 제작 3 — 독립 판단 · 제작 4 — 임시 거부 후보·알림 연결 · 제작 5 — 재판정·오차단 확인 (2026-11-07)
+
+**기록 출처:** [XDR 입력 계약](../../../xdr/README.md), [모의 Wazuh 경보](../../../xdr/fixtures/persistence.json), 제작 1~5 소스·재실행 결과, 사용자 제공 공식 심판 판정 (평가 커밋 [`b4a69c2`](https://github.com/Taetaeeee/choi-bujang-secret-vault/commit/b4a69c27248d61b387b1a5be17bb1278e8ca14d1))
+
 **상태:** 제작 1~5와 저장점 완료. 모의 경보 **24건: block 8 / alert 8 / record 8**, 정상 이벤트 오차단 **0건**. 사용자 제공 공식 심판 결과 **필수 조건 4/4, 완결성 가점 3개, 완성도 100/100점, 작전 점수 100/100점**.
 
 ## 과제 목표
