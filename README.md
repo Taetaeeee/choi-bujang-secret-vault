@@ -566,3 +566,11 @@ node scripts/stage10-note.mjs verify
 - **저장점 재검증:** `npm.cmd run xdr:run -- known-cve`로 교육용 경보 24건을 재판정한 결과 `xdr/known-cve/result.json`의 `counts`는 **block 8 · alert 8 · record 8**이며, 정상 경보 `kc-17`~`kc-24`의 block은 **0건**입니다. 기존 제작 1~4의 17/17 로컬 테스트는 앞선 별도 실행 결과입니다.
 - **재현:** Windows PowerShell에서 `npm.cmd run xdr:run -- known-cve`, `Get-Content xdr/known-cve/result.json -Raw -Encoding UTF8`을 실행합니다. 결과가 기존과 같으면 재실행 후 파일 내용 차이가 없어도 정상입니다.
 - **한계:** `block`은 교육용 경보의 분류 결과입니다. `respond.mjs`의 임시 거부 규칙은 `staged_only`이며 실제 운영 ZTNA 집행이나 공식 심판 점수와 다릅니다. 비밀값·`xdr/alerts.log`·`deny-rules.json`·`artifacts/submission.json`은 커밋하지 않습니다.
+
+## 보너스 xdr-04 저장점 — 지속성 탐지 (2026-11-07)
+
+- **범위:** MITRE ATT&CK T1543, T1053, T1547.001 기반 서비스·예약 작업·시작 폴더 탐지 패턴 3개와 독립 판정기, 대응 어댑터를 보존합니다.
+- **재검증:** `npm.cmd run xdr:run -- persistence`로 모의 경보 24건을 재판정했습니다. `xdr/persistence/result.json`의 counts는 block 8 · alert 8 · record 8이며, 정상 이벤트 ps-17~ps-24의 오차단은 0건입니다.
+- **재현:** 저장소 루트에서 `npm.cmd run xdr:run -- persistence` 실행 후 `Get-Content xdr/persistence/result.json -Raw -Encoding UTF8`로 확인합니다. 결과가 같으면 result.json의 Git 변경 사항이 없어도 정상입니다.
+- **한계:** respond.mjs의 15분 만료 거부 규칙은 staged_only 후보이며 운영 ZTNA에 실제 집행되지 않았습니다. 로컬 검증은 공식 심판 점수와 구분합니다.
+- **보안:** 기존 ZTNA 규칙과 설정은 유지합니다. alerts.log, deny-rules.json, 비밀값 및 제출 묶음은 커밋하지 않습니다.
