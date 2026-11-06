@@ -13,6 +13,34 @@ export async function runAttackChecks(config) {
     throw new Error('aleph.config.json의 실제 배포 주소를 먼저 넣어 주세요.');
   }
   if (typeof config.sampleMarker !== 'string' || !config.sampleMarker) throw new Error('가상 메모의 확인 표시를 넣어 주세요.');
+  // 12단계 공식 제출: 독립 심판 실행 기록과 연결되지 않은 자체 결과를 증거로 주장하지 않습니다.
+  // 심판 격리 실행은 네트워크 요청과 일부 모듈 사용을 제한하므로 이 분기에서는
+  // fetch, 파일 접근, 로컬 판정기/탐지기 실행 없이 점검 계획만 반환합니다.
+  if (config.step === 12) {
+    const plannedChecks = [
+      ["anonymous_static_data_read", "비로그인 정적 데이터 파일에서 개인 메모가 노출되지 않아야 함"],
+      ["anonymous_list_read", "비로그인 메모 목록 조회가 거부되어야 함"],
+      ["anonymous_note_create", "비로그인 메모 생성 요청이 거부되어야 함"],
+      ["anonymous_note_update_delete", "비로그인 메모 수정과 삭제가 거부되어야 함"],
+      ["anon_data_api_read", "원본 Data API의 비인증 메모 읽기가 차단되어야 함"],
+      ["anon_data_api_delete", "원본 Data API의 비인증 삭제가 차단되어야 함"],
+      ["cross_owner_access", "A와 B 사이의 타인 메모 접근이 차단되어야 함"],
+      ["screen_has_no_public_key", "화면에 서버 전용 비밀키나 기기 개인키가 노출되지 않아야 함"],
+      ["device_rule_local", "등록되지 않은 기기의 자료 접근이 거부되어야 함"],
+      ["step_up_cases_local", "복합 이상 접속에 추가 본인 확인이 적용되어야 함"],
+      ["relogin_block_not_run", "추가 인증 완료 전 보호 자료 접근이 차단되어야 함"],
+      ["anonymous_other_zone_api", "비인증 상태의 다른 자료 구역 접근이 거부되어야 함"],
+      ["zone_rules_local", "개인 메모와 반 공지 및 강사 자료 구역이 분리되어야 함"],
+      ["other_zone_authenticated_api", "인증해도 허용되지 않은 자료 구역 접근은 거부되어야 함"],
+      ["burst_read_local", "10분 내 반복 조회 임계값을 넘으면 회수 제안이 생성되어야 함"],
+      ["revocation_not_run", "운영 엔진에서 회수 확인 전 토큰을 계속 허용하지 않아야 함"],
+      ["policy_and_memo_restore", "정책과 가상 메모 복원 시 소유권 및 해시 검증이 필요함"],
+      ["anonymous_device_api", "비로그인 기기 API는 보호 정보를 반환하지 않아야 함"],
+      ["anonymous_ops_api", "비로그인 작전실 API는 요약 정보를 반환하지 않아야 함"],
+      ["ops_live_and_judge_suite_not_run", "운영 작전실과 공식 심판 공격 결과는 별도 증거로 확인해야 함"],
+    ];
+    return plannedChecks.map(([attackId, expected]) => ({ attackId, expected, observed: 'not_run' }));
+  }
   if (config.step === 3 || config.step === 4 || config.step === 5 || config.step === 6 || config.step === 7 || config.step === 8 || config.step === 9 || config.step === 10 || config.step === 11 || config.step === 12) {
     // 공개 경로에 실제 비인증 요청을 보냅니다. 토큰과 본문은 기록하지 않습니다.
     const options = { redirect: 'error', signal: AbortSignal.timeout(10000), credentials: 'omit' };

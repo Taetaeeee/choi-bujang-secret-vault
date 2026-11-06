@@ -39,81 +39,44 @@ test('12단계 저장점은 step 12 설정과 10단계 비공개 백업 정책�
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test('12단계 제출은 20건 이내 실제·가상 점검을 구분하고 공식 41종을 통과로 작성하지 않는다', async () => {
-  const oldFetch = globalThis.fetch;
-  const beforeKey = process.env.SUPABASE_PUBLISHABLE_KEY;
-  process.env.SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_only_mock';
-  const requests = [];
-  globalThis.fetch = async (input, options = {}) => {
-    const url = new URL(String(input));
-    requests.push([options.method ?? 'GET', url.pathname,
-      new Headers(options.headers).get('X-BB-Attack-ID')]);
-    if (url.pathname === '/aleph.json') return Response.json({ step: 12, repoUrl: config.repoUrl });
-    if (url.pathname === '/data.json') return new Response('', { status: 404 });
-    if (url.pathname === '/') return new Response('fixture', {
-      headers: { 'X-Content-Type-Options': 'nosniff' },
-    });
-    if (url.pathname === '/manifest.webmanifest') return Response.json({
-      name: 'BYTE BACK 내 자료실', start_url: '/', scope: '/', display: 'standalone',
-      icons: [{ sizes: '192x192', type: 'image/png' }, { sizes: '512x512', type: 'image/png' }],
-    });
-    if (url.pathname === '/operations.html') return new Response('fixture', { status: 200 });
-    if (url.pathname === '/api/device') return Response.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-    if (url.pathname === '/api/operations') return Response.json({ error: 'UNAUTHORIZED' }, {
-      status: 401, headers: { 'X-Request-ID': 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',
-        'X-Observed-At': '2026-11-05T00:00:00.000Z' },
-    });
-    if (url.pathname === '/api/restore') return Response.json({ error: 'RESTORE_NOT_AVAILABLE' }, { status: 503 });
-    if (url.pathname.startsWith('/api/notes') || url.pathname === '/rest/v1/vault_user_notes') {
-      return Response.json({ error: 'UNAUTHORIZED' }, { status: 401 });
-    }
-    throw new Error('unexpected_mock_url');
+test('12단계 제출은 20개 전부 not_run이고 네트워크 요청을 전혀 하지 않는다', async () => {
+  const originalFetch = globalThis.fetch;
+  let requests = 0;
+  globalThis.fetch = async () => {
+    requests += 1;
+    throw new Error('unexpected_s12_network_request');
   };
   try {
     const results = await runAttackChecks(config);
     assert.equal(results.length, 20);
-    assert.equal(new Set(results.map(item => item.attackId)).size, 20);
-    const operations = results.find(item => item.attackId === 'stage12_unauthenticated_operations');
-    assert.ok(operations);
-    // 관측된 GET은 self_probe로 구분하고, 수행하지 않은 로컬 검사는 not_run으로 남깁니다.
-    assert.match(operations.observed, /^self_probe HTTP 401; UNAUTHORIZED true; 서버 요청 ID\/시각 true; 공식 심판 미검증$/u);
-    assert.match(results.find(item => item.attackId === 'stage12_unauthenticated_device').observed,
-      /^self_probe HTTP 401; UNAUTHORIZED true; 공식 심판 미검증$/u);
-    assert.match(results.find(item => item.attackId === 'stage12_public_dashboard').observed,
-      /^self_probe HTTP 200; 공식 심판 미검증$/u);
-    for (const id of ['static_note_read', 'anonymous_api_note_read', 'deployment_identity_read',
-      'security_header_read', 'anonymous_single_note_read', 'stage11_public_manifest']) {
-      assert.match(results.find(item => item.attackId === id).observed, /^self_probe HTTP [0-9]{3}/u, id);
-    }
-    assert.ok(results.some(item => item.attackId === 'stage11_public_manifest'));
-    assert.ok(results.some(item => item.attackId === 'stage10_policy_backup_local'));
-    assert.ok(results.some(item => item.attackId === 'device_registration_local_fixture'));
-    assert.ok(results.every(item => Object.keys(item).sort().join(',') === 'attackId,expected,observed'
-      && item.expected.length <= 300 && item.observed.length <= 300));
-    // 이번 실행의 실제 GET 목록만 상태 코드와 1:1 연결합니다.
-    assert.deepEqual(requests.map(([method, path, attackId]) => {
-      assert.equal(method, 'GET');
-      assert.ok(attackId, `missing attackId on ${path}`);
-      return [path, attackId];
-    }), [
-      ['/data.json', 'static_note_read'],
-      ['/api/notes', 'anonymous_api_note_read'],
-      ['/aleph.json', 'deployment_identity_read'],
-      ['/', 'security_header_read'],
-      ['/api/notes/aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa', 'anonymous_single_note_read'],
-      ['/manifest.webmanifest', 'stage11_public_manifest'],
-      ['/api/device', 'stage12_unauthenticated_device'],
-      ['/api/operations', 'stage12_unauthenticated_operations'],
-      ['/operations.html', 'stage12_public_dashboard'],
-      ['/rest/v1/vault_user_notes', 'direct_original_api_read'],
+    assert.deepEqual(results.map(item => item.attackId), [
+      "anonymous_static_data_read",
+      "anonymous_list_read",
+      "anonymous_note_create",
+      "anonymous_note_update_delete",
+      "anon_data_api_read",
+      "anon_data_api_delete",
+      "cross_owner_access",
+      "screen_has_no_public_key",
+      "device_rule_local",
+      "step_up_cases_local",
+      "relogin_block_not_run",
+      "anonymous_other_zone_api",
+      "zone_rules_local",
+      "other_zone_authenticated_api",
+      "burst_read_local",
+      "revocation_not_run",
+      "policy_and_memo_restore",
+      "anonymous_device_api",
+      "anonymous_ops_api",
+      "ops_live_and_judge_suite_not_run",
     ]);
-    assert.match(results.find(item => item.attackId === 'direct_original_api_read').observed,
-      /^self_probe HTTP 401; 직접 접근 차단 true; 공식 심판 미검증$/u);
-    assert.equal(results.filter(item => item.observed.startsWith('self_probe HTTP ')).length, requests.length);
-    assert.ok(!results.some(item => /41종.*통과/u.test(item.observed)));
+    assert.ok(results.every(item => item.observed === 'not_run'));
+    assert.ok(results.every(item => Object.keys(item).sort().join(',') === 'attackId,expected,observed'));
+    assert.ok(results.every(item => typeof item.expected === 'string' && item.expected.length > 0 && item.expected.length <= 300));
+    assert.equal(new Set(results.map(item => item.attackId)).size, 20);
+    assert.equal(requests, 0, '12단계 번들 실행은 GET을 포함한 네트워크 요청을 보내면 안 됨');
   } finally {
-    globalThis.fetch = oldFetch;
-    if (beforeKey === undefined) delete process.env.SUPABASE_PUBLISHABLE_KEY;
-    else process.env.SUPABASE_PUBLISHABLE_KEY = beforeKey;
+    globalThis.fetch = originalFetch;
   }
 });
