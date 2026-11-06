@@ -574,3 +574,11 @@ node scripts/stage10-note.mjs verify
 - **재현:** 저장소 루트에서 `npm.cmd run xdr:run -- persistence` 실행 후 `Get-Content xdr/persistence/result.json -Raw -Encoding UTF8`로 확인합니다. 결과가 같으면 result.json의 Git 변경 사항이 없어도 정상입니다.
 - **한계:** respond.mjs의 15분 만료 거부 규칙은 staged_only 후보이며 운영 ZTNA에 실제 집행되지 않았습니다. 로컬 검증은 공식 심판 점수와 구분합니다.
 - **보안:** 기존 ZTNA 규칙과 설정은 유지합니다. alerts.log, deny-rules.json, 비밀값 및 제출 묶음은 커밋하지 않습니다.
+
+## 보너스 xdr-05 저장점 — 권한 상승 탐지 (2026-11-07)
+
+- **범위:** MITRE ATT&CK T1068·T1078을 근거로 관리자 그룹 추가, 처음 보는 관리자 명령, 업무 시간 밖 권한 사용 패턴 3개를 정의했습니다. `xdr/privilege/read-alerts.mjs`는 경보의 필요한 다섯 필드만 읽고, `decide.mjs`는 다른 모듈을 불러오지 않는 독립 판정기입니다.
+- **재검증:** `npm.cmd run xdr:run -- privilege`로 교육용 경보 26건을 판정한 `xdr/privilege/result.json`의 counts는 **block 9 · alert 8 · record 9**입니다. 정상 이벤트 `pv-18`~`pv-26`의 block은 **0건**입니다. 재생성한 결과가 앞서 커밋한 결과와 바이트 단위로 같아 `result.json`에 추가 변경은 없습니다.
+- **대응과 한계:** `respond.mjs`는 15분 만료와 근거 경보 번호가 있는 임시 거부 후보 4개를 만들고, 같은 계정의 정상·불확실 경보와 충돌하는 후보 5건을 보류합니다. `xdr/alerts.log`에 알림을 누적할 수 있으나 실제 운영 ZTNA 엔진과 신뢰된 계정 연결이 없어 **`staged_only`**입니다. `continue`는 기존 ZTNA 판정을 이어간다는 뜻이며 최종 접근 허용이나 실차단 증거가 아닙니다.
+- **재현:** 저장소 루트에서 `npm.cmd run xdr:run -- privilege`를 실행한 다음 PowerShell에서 `(Get-Content xdr/privilege/result.json -Raw -Encoding UTF8 | ConvertFrom-Json).counts | Format-List`로 세 건수를 확인합니다. 기존 `src/decider.mjs`, `aleph.config.json`, 원본 경보는 수정하지 않습니다.
+- **보안·판정 범위:** `xdr/alerts.log`, `xdr/*/deny-rules.json`, 비밀번호·토큰·기기 개인키·실사용 메모 본문·제출 임시 산출물은 커밋하지 않습니다. 로컬 시험 결과는 공식 심판 점수와 구분합니다.
