@@ -1,0 +1,28 @@
+{
+  "cve": "CVE-2021-44228",
+  "technique": "T1190",
+  "reference": "https://attack.mitre.org/techniques/T1190/",
+  "patterns": [
+    {
+      "id": "jndi-header-lookup",
+      "name": "요청 머리글에 포함된 원격 JNDI 조회 시도",
+      "condition": "Wazuh data.useragent 등 요청 머리글에서 완전한 JNDI 원격 조회 구문을 확인하고, rule.description 또는 rule.mitre의 T1190 등과 교차 검토한다. 단순 jndi 단어·CVE 이름만으로는 일치시키지 않는다.",
+      "evidence": "NVD CVE-2021-44228은 공격자가 제어한 로그 메시지와 매개변수의 JNDI/LDAP 조회가 취약한 Log4j2에서 원격 코드 실행으로 이어질 수 있다고 설명한다.",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"
+    },
+    {
+      "id": "jndi-parameter-lookup",
+      "name": "URL 인자에 포함된 원격 JNDI 조회 시도",
+      "condition": "Wazuh data.url의 요청 인자에서 완전한 JNDI 원격 조회 구문을 확인하고, rule.description 또는 rule.mitre의 T1190 등과 교차 검토한다. 단순 취약점 이름 검색·문서 조회는 제외한다.",
+      "evidence": "NVD CVE-2021-44228은 로그 메시지의 매개변수에 전달된 공격자 제어 JNDI 조회가 취약한 Log4j2의 원격 실행 위험과 연결된다고 명시한다.",
+      "reference": "https://nvd.nist.gov/vuln/detail/CVE-2021-44228"
+    },
+    {
+      "id": "vulnerability-scan-trace",
+      "name": "알려진 취약점 점검 도구의 흔적",
+      "condition": "Wazuh rule.description에 취약점 점검 흔적이나 점검 도구와 유사한 요청이 명시된 경우 조사 신호로 분류한다. 도구 이름·CVE 문자열·낮은 수준의 단발 경보만으로는 악용 확정 또는 자동 차단하지 않는다.",
+      "evidence": "MITRE ATT&CK T1190은 공개 애플리케이션의 취약점 악용을 다루지만, 점검 도구 흔적 자체만으로는 실제 악용 요청이나 침해 성공을 확정할 수 없다.",
+      "reference": "https://attack.mitre.org/techniques/T1190/"
+    }
+  ]
+}
