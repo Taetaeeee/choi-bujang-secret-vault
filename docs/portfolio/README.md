@@ -33,7 +33,7 @@
 |---|---|---|---|
 | XDR-01 | 무차별 로그인 공격 탐지 | 검증 사실 기반 요약 (원문 확인 필요) | [xdr-01-brute-force.md](xdr/xdr-01-brute-force.md) |
 | XDR-02 | 웹 주입 공격 탐지 | 제작 1~5의 대화 기록 반영 | [xdr-02-web-injection.md](xdr/xdr-02-web-injection.md) |
-| XDR-03 | 알려진 취약점 악용 탐지 | 제작 1·2 검증 완료(7/7) · 제작 3 독립 판정 구현(검증 대기) | [xdr-03-known-cve.md](xdr/xdr-03-known-cve.md) |
+| XDR-03 | 알려진 취약점 악용 탐지 | 제작 1~3 검증 완료(12/12) · 제작 4 대응 연결 구현(검증 대기) | [xdr-03-known-cve.md](xdr/xdr-03-known-cve.md) |
 
 새로운 과제를 완료하면 이 목차와 해당 문서만 추가합니다. 아직 진행하지 않은 XDR-04~06은 빈 성과 기록으로 미리 만들지 않습니다.
 
