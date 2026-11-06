@@ -8,6 +8,8 @@ import { verifiedApiIdentity, ownsStoredNote, ownsAllStoredNotes } from '../src/
 // 4단계 제작 2: 검증된 사용자 ID와 DB owner_id가 일치할 때만 접근합니다.
 // DB GRANT/RLS 정책 변경은 다음 제작 단계에서 진행합니다.
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const JWT_BEARER = /^Bearer [A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/u;
 
 function validNoteFields(value, allowId = false) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -35,7 +37,7 @@ export async function notesHandler(request, response, {
   authorize = authorizeVault, makeDb = createClient, deviceLookup = getDeviceApproval,
 } = {}) {
   response.setHeader('Cache-Control', 'no-store');
-  response.setHeader('Vary', 'Cookie');
+  response.setHeader('Vary', 'Cookie, Authorization');
   response.setHeader('X-Content-Type-Options', 'nosniff');
   // 12단계 제작 2: 실제 응답과 가린 확인표를 대조하는 서버 발급 요청 메타데이터.
   response.setHeader('X-Request-ID', randomUUID());
@@ -58,8 +60,16 @@ export async function notesHandler(request, response, {
   const auth = await authorize(request, response);
   if (!auth.identity) return response.status(auth.status).json({ error: auth.error });
   const identity = auth.identity;
-  // 데이터 변경 요청은 SameSite 쿠키와 같은 출처 검증을 함께 적용합니다.
-  if (request.method !== 'GET' && !sameOrigin(request)) {
+  // authorizeVault/createLoginVerifier has already verified the trusted issuer's
+  // ES256 judge JWT. Unlike browser sessions, a judge Bearer cannot enroll
+  // in the student-only device approval table; never exempt student cookies.
+  const verifiedJudgeBearer = identity.kind === 'judge' && !auth.session
+    && JWT_BEARER.test(request.headers?.authorization ?? '')
+    && UUID_V4.test(identity.userId ?? '') && UUID_V4.test(identity.runId ?? '')
+    && (identity.identity === 'a' || identity.identity === 'b');
+  // Origin CSRF checking remains mandatory for browser cookie mutations.
+  // Explicit, signed Bearer requests are not ambient browser credentials.
+  if (request.method !== 'GET' && !verifiedJudgeBearer && !sameOrigin(request)) {
     return response.status(403).json({ error: 'ORIGIN_FORBIDDEN' });
   }
   if (!verifiedApiIdentity(identity)) {
@@ -72,12 +82,14 @@ export async function notesHandler(request, response, {
   const db = makeDb(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
-  const approval = await deviceLookup(db, request, identity);
-  if (approval.status === 'unavailable') {
-    return response.status(503).json({ error: 'DEVICE_APPROVAL_UNAVAILABLE' });
-  }
-  if (approval.status !== 'approved') {
-    return response.status(403).json({ error: 'DEVICE_NOT_APPROVED' });
+  if (!verifiedJudgeBearer) {
+    const approval = await deviceLookup(db, request, identity);
+    if (approval.status === 'unavailable') {
+      return response.status(503).json({ error: 'DEVICE_APPROVAL_UNAVAILABLE' });
+    }
+    if (approval.status !== 'approved') {
+      return response.status(403).json({ error: 'DEVICE_NOT_APPROVED' });
+    }
   }
   // 승인된 브라우저에서도 아래 기존 메모 소유자 필터를 그대로 적용합니다.
   try {

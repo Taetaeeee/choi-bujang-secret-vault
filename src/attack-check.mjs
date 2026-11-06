@@ -22,10 +22,10 @@ export async function runAttackChecks(config) {
       ...options, method: 'GET', cache: 'no-store',
       headers: { 'X-BB-Attack-ID': attackId },
     });
-    const staticResponse = config.step === 12 ? null : await getForCheck('static_note_read', '/data.json');
+    const staticResponse = await getForCheck('static_note_read', '/data.json');
     const apiResponse = await getForCheck('anonymous_api_note_read', '/api/notes');
-    const deploymentResponse = config.step === 12 ? null : await getForCheck('deployment_identity_read', '/aleph.json');
-    const pageResponse = config.step === 12 ? null : await getForCheck('security_header_read', '/');
+    const deploymentResponse = await getForCheck('deployment_identity_read', '/aleph.json');
+    const pageResponse = await getForCheck('security_header_read', '/');
     let exposed = false;
     if (staticResponse?.ok) {
       try {
@@ -36,11 +36,13 @@ export async function runAttackChecks(config) {
     }
     let denied = false;
     let apiExposed = false;
-    try {
-      const data = await apiResponse.json();
-      denied = data?.error === 'UNAUTHORIZED';
-      apiExposed = Array.isArray(data?.notes) && data.notes.length > 0;
-    } catch { /* 비JSON 응답은 성공으로 기록하지 않습니다. */ }
+    if (apiResponse) {
+      try {
+        const data = await apiResponse.json();
+        denied = data?.error === 'UNAUTHORIZED';
+        apiExposed = Array.isArray(data?.notes) && data.notes.length > 0;
+      } catch { /* 비JSON 응답은 성공으로 기록하지 않습니다. */ }
+    }
     let stepMatches = false;
     let repoMatches = false;
     if (deploymentResponse?.ok) {
@@ -57,7 +59,7 @@ export async function runAttackChecks(config) {
         observed: staticResponse ? `HTTP ${staticResponse.status}; 정적 메모 노출 ${exposed}` : 'not_run' },
       { attackId: 'anonymous_api_note_read',
         expected: '비로그인 GET /api/notes는 401 JSON 오류, 메모 없음',
-        observed: `HTTP ${apiResponse.status}; UNAUTHORIZED ${denied}; 메모 노출 ${apiExposed}` },
+        observed: apiResponse ? `HTTP ${apiResponse.status}; UNAUTHORIZED ${denied}; 메모 노출 ${apiExposed}` : 'not_run' },
       { attackId: 'deployment_identity_read',
         expected: '/aleph.json 현재 단계와 저장소 주소 일치',
         observed: deploymentResponse ? `HTTP ${deploymentResponse.status}; 단계 일치 ${stepMatches}; 저장소 일치 ${repoMatches}` : 'not_run' },
@@ -150,7 +152,7 @@ export async function runAttackChecks(config) {
       checks.push({
         attackId: 'anonymous_single_note_read',
         expected: '비인증 GET /api/notes/:id 401; 로그인 A/B 간 소유권 실측은 별도',
-        observed: `HTTP ${direct.status}; 비인증 거부 ${direct.status === 401}; 실제 A/B 교차 접근 미실행`,
+        observed: direct ? `HTTP ${direct.status}; 비인증 거부 ${direct.status === 401}; 실제 A/B 교차 접근 미실행` : 'not_run',
       });
     }
     if (config.step === 9 || config.step === 10 || config.step === 11 || config.step === 12) {
@@ -263,10 +265,10 @@ export async function runAttackChecks(config) {
     }
     if (config.step === 11 || config.step === 12) {
       // 설치 자료와 비로그인 기기 API만 실측합니다. 승인된 계정의 쿠키·개인 자료는 읽지 않습니다.
-      const manifestResponse = config.step === 12 ? null : await getForCheck('stage11_public_manifest', '/manifest.webmanifest');
-      const deviceResponse = config.step === 12
-        ? null
-        : await getForCheck('stage11_unauthenticated_device', '/api/device');
+      const manifestResponse = await getForCheck('stage11_public_manifest', '/manifest.webmanifest');
+      const deviceResponse = await getForCheck(
+        config.step === 12 ? 'stage12_unauthenticated_device' : 'stage11_unauthenticated_device',
+        '/api/device');
       let manifestValid = false;
       if (manifestResponse?.ok) {
         try {
@@ -292,16 +294,15 @@ export async function runAttackChecks(config) {
         } catch { /* 오류 본문을 출력하지 않습니다. */ }
       }
       if (config.step === 12) {
-        // 12단계: 공개 대시보드와 비로그인 요약 API를 실제 요청으로만 확인합니다.
-        // 각각의 실제 GET 요청을 고유 attackId에 대응시킵니다(제출 상한 20건).
-        // 41종 총공세를 실행하거나 통과로 만들어 넣지 않습니다.
+        // 12단계 자체 점검 GET. 공식 심판의 41종 공격 결과로 사용하지 않습니다.
+        // 인증 쿠키, Bearer 토큰, 실제 메모 본문을 전송하거나 기록하지 않습니다.
         const operationsResponse = await getForCheck('stage12_unauthenticated_operations', '/api/operations');
-        // 12단계 제출 점검에서는 공개 화면 GET을 전송하지 않습니다.
+        const dashboardResponse = await getForCheck('stage12_public_dashboard', '/operations.html');
         let operationsDenied = false;
         try {
           const data = await operationsResponse.json();
           operationsDenied = operationsResponse.status === 401 && data?.error === 'UNAUTHORIZED';
-        } catch { /* 원본 요청·비밀값·응답 본문을 기록하지 않습니다. */ }
+        } catch { /* JSON 외 응답은 거부 증거가 아닙니다. */ }
         const requestId = operationsResponse.headers.get('x-request-id');
         const observedAt = operationsResponse.headers.get('x-observed-at');
         const hasHeaders = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu.test(requestId ?? '')
@@ -309,7 +310,7 @@ export async function runAttackChecks(config) {
         checks.push({
           attackId: 'stage12_unauthenticated_device',
           expected: '비로그인 GET /api/device는 401 UNAUTHORIZED',
-          observed: 'not_run',
+          observed: `HTTP ${deviceResponse.status}; UNAUTHORIZED ${deviceDenied}`,
         });
         checks.push({
           attackId: 'stage12_unauthenticated_operations',
@@ -319,7 +320,7 @@ export async function runAttackChecks(config) {
         checks.push({
           attackId: 'stage12_public_dashboard',
           expected: '비로그인 GET /operations.html은 공개 안내 화면으로 제공됨',
-          observed: 'not_run',
+          observed: `HTTP ${dashboardResponse.status}`,
         });
       } else {
         checks.push({
@@ -374,6 +375,9 @@ export async function runAttackChecks(config) {
       ]);
       for (const check of checks) {
         if (localOnlyAttackIds.has(check.attackId)) check.observed = 'not_run';
+        else if (check.observed.startsWith('HTTP ')) {
+          check.observed = `self_probe ${check.observed}; 공식 심판 미검증`;
+        }
       }
       // 12단계 제출 한도는 20건입니다. HTTP 미실행 로컬 복구 상세 2건만 제외하고
       // 비로그인 device/operations/dashboard 각각의 실제 HTTP 응답을 따로 기록합니다.

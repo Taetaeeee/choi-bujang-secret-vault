@@ -75,17 +75,22 @@ test('12단계 제출은 20건 이내 실제·가상 점검을 구분하고 공�
     assert.equal(new Set(results.map(item => item.attackId)).size, 20);
     const operations = results.find(item => item.attackId === 'stage12_unauthenticated_operations');
     assert.ok(operations);
-    assert.match(operations.observed, /HTTP 401; UNAUTHORIZED true; 서버 요청 ID\/시각 true/u);
+    // 관측된 GET은 self_probe로 구분하고, 수행하지 않은 로컬 검사는 not_run으로 남깁니다.
+    assert.match(operations.observed, /^self_probe HTTP 401; UNAUTHORIZED true; 서버 요청 ID\/시각 true; 공식 심판 미검증$/u);
     assert.match(results.find(item => item.attackId === 'stage12_unauthenticated_device').observed,
-      /HTTP 401; UNAUTHORIZED true/u);
+      /^self_probe HTTP 401; UNAUTHORIZED true; 공식 심판 미검증$/u);
     assert.match(results.find(item => item.attackId === 'stage12_public_dashboard').observed,
-      /^HTTP 200$/u);
+      /^self_probe HTTP 200; 공식 심판 미검증$/u);
+    for (const id of ['static_note_read', 'anonymous_api_note_read', 'deployment_identity_read',
+      'security_header_read', 'anonymous_single_note_read', 'stage11_public_manifest']) {
+      assert.match(results.find(item => item.attackId === id).observed, /^self_probe HTTP [0-9]{3}/u, id);
+    }
     assert.ok(results.some(item => item.attackId === 'stage11_public_manifest'));
     assert.ok(results.some(item => item.attackId === 'stage10_policy_backup_local'));
     assert.ok(results.some(item => item.attackId === 'device_registration_local_fixture'));
     assert.ok(results.every(item => Object.keys(item).sort().join(',') === 'attackId,expected,observed'
       && item.expected.length <= 300 && item.observed.length <= 300));
-    // No HTTP response may be claimed under a reused/missing request check ID.
+    // 이번 실행의 실제 GET 목록만 상태 코드와 1:1 연결합니다.
     assert.deepEqual(requests.map(([method, path, attackId]) => {
       assert.equal(method, 'GET');
       assert.ok(attackId, `missing attackId on ${path}`);
@@ -102,6 +107,9 @@ test('12단계 제출은 20건 이내 실제·가상 점검을 구분하고 공�
       ['/operations.html', 'stage12_public_dashboard'],
       ['/rest/v1/vault_user_notes', 'direct_original_api_read'],
     ]);
+    assert.match(results.find(item => item.attackId === 'direct_original_api_read').observed,
+      /^self_probe HTTP 401; 직접 접근 차단 true; 공식 심판 미검증$/u);
+    assert.equal(results.filter(item => item.observed.startsWith('self_probe HTTP ')).length, requests.length);
     assert.ok(!results.some(item => /41종.*통과/u.test(item.observed)));
   } finally {
     globalThis.fetch = oldFetch;
