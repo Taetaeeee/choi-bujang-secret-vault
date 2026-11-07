@@ -582,3 +582,11 @@ node scripts/stage10-note.mjs verify
 - **대응과 한계:** `respond.mjs`는 15분 만료와 근거 경보 번호가 있는 임시 거부 후보 4개를 만들고, 같은 계정의 정상·불확실 경보와 충돌하는 후보 5건을 보류합니다. `xdr/alerts.log`에 알림을 누적할 수 있으나 실제 운영 ZTNA 엔진과 신뢰된 계정 연결이 없어 **`staged_only`**입니다. `continue`는 기존 ZTNA 판정을 이어간다는 뜻이며 최종 접근 허용이나 실차단 증거가 아닙니다.
 - **재현:** 저장소 루트에서 `npm.cmd run xdr:run -- privilege`를 실행한 다음 PowerShell에서 `(Get-Content xdr/privilege/result.json -Raw -Encoding UTF8 | ConvertFrom-Json).counts | Format-List`로 세 건수를 확인합니다. 기존 `src/decider.mjs`, `aleph.config.json`, 원본 경보는 수정하지 않습니다.
 - **보안·판정 범위:** `xdr/alerts.log`, `xdr/*/deny-rules.json`, 비밀번호·토큰·기기 개인키·실사용 메모 본문·제출 임시 산출물은 커밋하지 않습니다. 로컬 시험 결과는 공식 심판 점수와 구분합니다.
+
+## 보너스 xdr-06 저장점 — 자료 유출 탐지 (2026-11-07)
+
+- **범위:** MITRE ATT&CK T1041·T1048을 근거로 낯선 목적지의 대량 전송, 업무 시간 밖 압축 파일 반출, 명령 통로의 반복 전송 패턴 3개를 정의했습니다. `xdr/exfiltration/read-alerts.mjs`는 경보 30건에서 시각·출발 주소·계정·규칙 수준·설명만 추출하며, `decide.mjs`는 외부 모듈·파일 입출력·네트워크 없이 `decide(alert)`로 독립 판단합니다.
+- **재검증:** `npm.cmd run xdr:run -- exfiltration`로 교육용 Wazuh 형식 경보 30건을 재판정했습니다. `xdr/exfiltration/result.json`의 counts는 **block 10 · alert 10 · record 10**이며, 정상 이벤트 `ex-21`~`ex-30`은 모두 `record`(오차단 **0건**)입니다. 결과 파일은 기존 저장본과 동일하여 재실행 후에도 내용 변경이 없습니다.
+- **대응 및 한계:** `respond.mjs`는 명확한 공격에 한해 출발지·목적지 IP 쌍으로 구분된 15분 만료 거부 후보 10개를 생성하고, 근거 경보 번호와 만료 시각을 기록하며, 위험·의심 경보 20건의 알림을 `xdr/alerts.log`에 추가합니다. 현 ZTNA 공식 판정 요청에는 목적지 IP가 없으므로 규칙은 **`staged_only` 모의 연결**이며 운영 엔진의 실제 차단으로 간주하지 않습니다. `continue`는 기존 ZTNA 정책 판정을 계속한다는 뜻입니다.
+- **재현:** 저장소 루트에서 `npm.cmd run xdr:run -- exfiltration`을 실행한 다음 PowerShell에서 `(Get-Content xdr/exfiltration/result.json -Raw -Encoding UTF8 | ConvertFrom-Json).counts | Format-List`로 결과를 확인합니다. 기존 `src/decider.mjs`, `aleph.config.json`, 교육용 경보 원본은 수정하지 않습니다.
+- **보안·제출 범위:** `xdr/alerts.log`, `xdr/*/deny-rules.json`, 비밀번호·토큰·개인키·실제 개인정보·제출 임시 산출물은 커밋하지 않습니다. 여기의 로컬 검증 결과는 공식 심판 점수와 구분합니다.
