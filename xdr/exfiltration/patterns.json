@@ -1,0 +1,30 @@
+{
+  "moduleKey": "exfiltration",
+  "techniques": [
+    "T1041",
+    "T1048"
+  ],
+  "patterns": [
+    {
+      "id": "first-seen-bulk-exfiltration",
+      "name": "처음 보는 목적지로 대량 자료 반출",
+      "condition": "rule.mitre에 T1048이 있고 rule.description에 처음 보는 목적지 또는 주소로 자료·파일을 대량 전송하거나 여러 건 반출했다는 구체적인 내용이 있는지 확인한다. data.dstip과 숫자로 해석 가능한 data.bytes·data.files를 보조 근거로 확인하며, 목적지 IP 또는 전송량 하나만으로 공격을 확정하지 않는다. T1048 태그만으로 실제 대체 프로토콜 사용이 입증되는 것은 아니다.",
+      "evidence": "MITRE ATT&CK T1048은 기존 명령·제어 채널과 다른 프로토콜 또는 별도 목적지로 데이터를 반출하는 기법이므로, 낯선 목적지로 향한 비정상적인 대량 전송은 조사할 정황이다.",
+      "reference": "https://attack.mitre.org/techniques/T1048/"
+    },
+    {
+      "id": "off-hours-archive-exfiltration",
+      "name": "업무 시간 밖 압축 파일 외부 반출",
+      "condition": "rule.mitre에 T1048이 있고 rule.description에 수업·업무 시간 밖이라는 명시적 정황과 압축 파일이 외부 목적지로 전송됐다는 내용이 함께 있는지 확인한다. data.dstip과 data.bytes를 교차 확인하고, timestamp만으로 업무 시간대를 임의 판정하거나 압축 파일을 만들기만 한 사건·정상 백업을 유출로 확정하지 않는다.",
+      "evidence": "MITRE ATT&CK T1048은 별도 네트워크 프로토콜로 정보를 빼돌리는 방식을 다루므로, 비업무 시간에 압축 파일이 외부로 전송된 정황은 정상 백업 여부를 대조할 조사 신호다.",
+      "reference": "https://attack.mitre.org/techniques/T1048/"
+    },
+    {
+      "id": "repeated-c2-channel-exfiltration",
+      "name": "명령 통로를 통한 대량·반복 전송",
+      "condition": "rule.mitre에 T1041이 있고 rule.description에 명령 통로를 통한 큰 파일·자료의 실제 외부 전송과 반복 정황이 함께 명시되는지 확인한다. data.dstip, data.bytes, data.count를 보조 근거로 확인하며, 짧은 자료 이름이나 명령 통로의 존재만으로 유출을 확정하지 않는다.",
+      "evidence": "MITRE ATT&CK T1041은 기존 명령·제어(C2) 채널에 데이터를 실어 유출하는 기법이므로, 그 통로에서의 대량·반복 전송은 유출이 의심되는 신호다.",
+      "reference": "https://attack.mitre.org/techniques/T1041/"
+    }
+  ]
+}
