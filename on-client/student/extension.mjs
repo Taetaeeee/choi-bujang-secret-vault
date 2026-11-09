@@ -114,7 +114,84 @@ export function createStudentView() {
 
       return root;
     },
-    renderDecision() { return '학생 구현 대기: 서버의 판정과 이유를 연결하세요.'; },
+    renderDecision({ status, mode, data, error, appId } = {}) {
+      const root = document.createElement('div');
+      const labels = {
+        allow: '접근 허용',
+        deny: '접근 거부',
+        challenge: '추가 확인 필요',
+        unknown: '판정 확인 불가',
+      };
+      const modes = {
+        demo: '예제 자료',
+        disconnected: '연결 없음',
+        unknown: '확인 불가',
+      };
+
+      function displayValue(value) {
+        if (typeof value === 'string' && value.trim()) return value;
+        if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+        return '확인 불가';
+      }
+
+      function addText(parent, tag, message) {
+        const element = document.createElement(tag);
+        element.textContent = message;
+        parent.appendChild(element);
+        return element;
+      }
+
+      addText(root, 'h3', '업무 앱 접근 판정');
+      if (Object.hasOwn(modes, mode)) {
+        addText(root, 'p', `연결 상태: ${modes[mode]}`);
+      }
+
+      if (status === 'idle') {
+        addText(root, 'p', '앱을 골라 접속을 요청하세요.');
+        return root;
+      }
+
+      const requestedAppId = status === 'ok' ? data?.appId ?? appId : appId;
+      addText(root, 'p', `업무 앱 ID: ${displayValue(requestedAppId)}`);
+
+      if (status === 'loading') {
+        addText(root, 'p', '판정 확인 중');
+        return root;
+      }
+
+      if (status === 'error') {
+        addText(root, 'p', `요청 실패: ${displayValue(error?.message)}`);
+        addText(root, 'p', '요청 실패는 서버의 접근 거부(deny) 판정이 아닙니다.');
+        return root;
+      }
+
+      if (status !== 'ok') {
+        addText(root, 'p', '판정 확인 불가(unknown) — 접근 허용으로 간주하지 않습니다.');
+        return root;
+      }
+
+      const code = typeof data?.decision === 'string' && Object.hasOwn(labels, data.decision)
+        ? data.decision
+        : 'unknown';
+      addText(root, 'p', `접근 판정: ${labels[code]}(${code})`);
+
+      if (code === 'allow') {
+        addText(root, 'p', '정책상 접근 허용이며 실제 업무 앱 접속 성공을 보장하지 않습니다.');
+      } else if (code === 'challenge') {
+        addText(root, 'p', '추가 인증 또는 확인이 필요합니다. 케셰브는 이 확인 절차를 대신 수행하지 않습니다.');
+      } else if (code === 'unknown') {
+        addText(root, 'p', '판정을 확인할 수 없으므로 접근 허용으로 간주하지 않습니다.');
+      }
+
+      const details = document.createElement('dl');
+      details.className = 'kv';
+      addText(details, 'dt', '판정 이유');
+      addText(details, 'dd', displayValue(data?.reason));
+      addText(details, 'dt', '판정 시각');
+      addText(details, 'dd', displayValue(data?.checkedAt));
+      root.appendChild(details);
+      return root;
+    },
     renderEvents() { return '학생 구현 대기: 본인 접속·XDR 기록을 연결하세요.'; },
     renderStatus() { return '학생 구현 대기: 기기·세션·알림과 연결 점검 상태를 구분하세요.'; },
     renderVulnerabilities() { return '학생 구현 대기: 정확한 설치 버전·OSV 출처·조회 시각·부분 결과·조회 실패를 구분하세요.'; },
